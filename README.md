@@ -54,3 +54,36 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+
+
+
+# Today Is Everything
+
+Capture your family's voice. Print beautiful keepsake books.
+
+A mobile-first journaling app where families can record voice entries, add photos and videos, and turn memories into printed keepsake books with QR codes linking to the original audio/video.
+
+## 🎯 Features
+
+- 🎤 **Voice Journaling** - Record daily moments, auto-transcribe speech
+- 📸 **Photo Capture** - Add photos to entries
+- 📹 **Video Recording** - Capture video memories
+- 📖 **Printed Books** - Generate beautiful printed books with QR codes
+- 👨‍👩‍👧‍👦 **Family Sharing** - Invite family to contribute their own memories
+- ⏰ **Time Capsules** - Set journals to unlock on special dates
+
+## ⚡ Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm start
+
+# Scan QR code with Expo Go on your phone
+# Watch your app appear on your phone!
+```
+
+## 📂 Project Structure
