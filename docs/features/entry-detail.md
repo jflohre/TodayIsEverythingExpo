@@ -2,15 +2,16 @@
 
 ## Overview
 
-The entry detail view shows the full memory for a selected item, including transcript, media, metadata, and actions such as playback, editing, or deletion.
+The entry detail view shows the full memory for a selected item, including transcript, media, metadata, and actions such as playback, editing, or deletion. Because a memory can belong to multiple people, the detail screen should clearly show which people are tagged and how the memory is connected to each timeline.
 
 ## User Flow
 
-1. User taps an item in the timeline or journal view.
+1. User taps an item in the timeline or person view.
 2. App opens the full detail view.
 3. User can play audio, view images, or watch video.
 4. User reads the full transcript and metadata.
 5. User can edit or delete the entry if allowed.
+6. User can see which people are associated with the memory.
 
 ## Code Location
 
@@ -23,9 +24,11 @@ The entry detail view shows the full memory for a selected item, including trans
 
 - Display all associated media in a gallery or carousel layout.
 - Support audio playback controls with current time and duration.
-- Keep metadata visible: date, time, type, and journal origin.
+- Keep metadata visible: date, time, type, and tagged people.
 - Keep transcript readable and easy to copy or edit.
 - Provide clear delete actions with confirmation.
+- Show a tag summary such as `Emma + Liam` or `Family` above the content.
+- Keep the memory as a single record even when it appears across multiple person timelines.
 
 ## Dependencies
 
@@ -39,11 +42,13 @@ The entry detail view shows the full memory for a selected item, including trans
 - Open a multi-photo entry and verify gallery navigation.
 - Confirm transcript displays full content and handles large text blocks.
 - Validate delete confirmation and edit flow.
+- Create a shared memory tagged to multiple people and confirm the detail screen displays the correct tags.
 
 ## Known Issues
 
 - Rendering large galleries can be resource intensive.
 - Audio duration display may need consistent formatting across file types.
+- Shared-tag visibility needs clear UI treatment so it is obvious which person collections the memory belongs to.
 
 ## Future Improvements
 

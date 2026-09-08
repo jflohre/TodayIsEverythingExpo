@@ -3,7 +3,8 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
-import { EntryKind } from '@/types/entries';
+import { EntryDraft, EntryKind } from '@/types/entries';
+import { Person } from '@/types/person';
 
 let DateTimePicker: any = null;
 
@@ -12,14 +13,6 @@ try {
 } catch {
   DateTimePicker = null;
 }
-
-export type EntryDraft = {
-  title: string;
-  body: string;
-  type: EntryKind;
-  date: string;
-  location: string;
-};
 
 const entryTypes: EntryKind[] = ['voice', 'text', 'video', 'photo'];
 
@@ -52,15 +45,28 @@ export function EntryForm({
   onSubmit,
   onCancel,
   isSubmitting,
+  availablePeople = [],
 }: {
   draft: EntryDraft;
   onChange: (next: EntryDraft) => void;
   onSubmit: () => void;
   onCancel?: () => void;
   isSubmitting: boolean;
+  availablePeople?: Person[];
 }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const dateValue = draft.date ? new Date(`${draft.date}T12:00:00`) : new Date();
+
+  const toggleTaggedPerson = (personId: string) => {
+    const taggedPeople = draft.taggedPeople.includes(personId)
+      ? draft.taggedPeople.filter((id) => id !== personId)
+      : [...draft.taggedPeople, personId];
+
+    onChange({
+      ...draft,
+      taggedPeople,
+    });
+  };
 
   const handleDateChange = (_event: unknown, selectedDate?: Date) => {
     if (!selectedDate) {
@@ -112,6 +118,28 @@ export function EntryForm({
           ))}
         </View>
       </View>
+
+      {availablePeople.length > 0 ? (
+        <View style={styles.fieldGroup}>
+          <ThemedText type="smallBold">Tagged people</ThemedText>
+          <View style={styles.chipGroup}>
+            {availablePeople.map((person) => {
+              const isSelected = draft.taggedPeople.includes(person.id);
+
+              return (
+                <Pressable
+                  key={person.id}
+                  onPress={() => toggleTaggedPerson(person.id)}
+                  style={[styles.chip, isSelected && styles.chipSelected]}>
+                  <ThemedText type="small" style={isSelected ? styles.chipTextSelected : undefined}>
+                    {person.name}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.fieldGroup}>
         <ThemedText type="smallBold">Date</ThemedText>

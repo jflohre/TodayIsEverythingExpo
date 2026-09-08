@@ -3,30 +3,31 @@ import { useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { EntryDraft, EntryForm } from '@/components/entry-form';
-import { JournalCard } from '@/components/journal-card';
-import { JournalForm } from '@/components/journal-form';
+import { EntryForm } from '@/components/entry-form';
+import { PersonCard } from '@/components/person-card';
+import { PersonForm } from '@/components/person-form';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useEntries } from '@/context/EntryContext';
-import { useJournal } from '@/context/JournalContext';
-import { JournalDraft } from '@/types/journal';
+import { usePerson } from '@/context/PersonContext';
+import { EntryDraft } from '@/types/entries';
+import { PersonDraft } from '@/types/person';
 
-const emptyDraft: JournalDraft = {
+const emptyDraft: PersonDraft = {
   name: '',
   type: 'family',
   privacy: 'private',
   description: '',
 };
 
-export default function JournalsScreen() {
+export default function PeopleScreen() {
   const router = useRouter();
-  const { journals, addJournal, removeJournal } = useJournal();
-  const { getEntriesForJournal, addEntry } = useEntries();
+  const { people, addPerson, removePerson } = usePerson();
+  const { getEntriesForPerson, addEntry } = useEntries();
   const [isCreating, setIsCreating] = useState(false);
-  const [selectedJournalId, setSelectedJournalId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<JournalDraft>(emptyDraft);
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<PersonDraft>(emptyDraft);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreatingMemory, setIsCreatingMemory] = useState(false);
   const [memoryDraft, setMemoryDraft] = useState<EntryDraft>({
@@ -35,6 +36,7 @@ export default function JournalsScreen() {
     type: 'voice',
     date: new Date().toISOString().slice(0, 10),
     location: '',
+    taggedPeople: [],
   });
   const [isSubmittingMemory, setIsSubmittingMemory] = useState(false);
 
@@ -52,7 +54,7 @@ export default function JournalsScreen() {
       return;
     }
 
-    Alert.alert('Discard draft?', 'Your journal draft will be lost.', [
+    Alert.alert('Discard draft?', 'Your person draft will be lost.', [
       { text: 'Keep editing', style: 'cancel' },
       {
         text: 'Discard',
@@ -67,12 +69,12 @@ export default function JournalsScreen() {
 
   const handleSubmit = () => {
     if (!draft.name.trim()) {
-      Alert.alert('Missing name', 'Please enter a journal name before saving.');
+      Alert.alert('Missing name', 'Please enter a person name before saving.');
       return;
     }
 
     setIsSubmitting(true);
-    addJournal(draft);
+    addPerson(draft);
 
     setTimeout(() => {
       setIsSubmitting(false);
@@ -82,34 +84,33 @@ export default function JournalsScreen() {
   };
 
   const handleDelete = (id: string, name: string) => {
-    Alert.alert('Delete journal', `Remove ${name}? This cannot be undone.`, [
+    Alert.alert('Delete person', `Remove ${name}? This cannot be undone.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => removeJournal(id),
+        onPress: () => removePerson(id),
       },
     ]);
   };
 
-  const handleOpenJournal = (id: string) => {
-    console.log('Opening journal', id);
-    setSelectedJournalId(id);
+  const handleOpenPerson = (id: string) => {
+    setSelectedPersonId(id);
     try {
-      router.push({ pathname: '/journal-detail', params: { journalId: id } });
+      router.push({ pathname: '/person-memories', params: { personId: id } });
     } catch (error) {
       console.warn('Router push failed, using in-screen detail fallback', error);
     }
   };
 
-  const selectedJournal = useMemo(
-    () => journals.find((journal) => journal.id === selectedJournalId) ?? null,
-    [journals, selectedJournalId],
+  const selectedPerson = useMemo(
+    () => people.find((person) => person.id === selectedPersonId) ?? null,
+    [people, selectedPersonId],
   );
 
   const selectedEntries = useMemo(
-    () => (selectedJournal ? getEntriesForJournal(selectedJournal.id) : []),
-    [getEntriesForJournal, selectedJournal],
+    () => (selectedPerson ? getEntriesForPerson(selectedPerson.id) : []),
+    [getEntriesForPerson, selectedPerson],
   );
 
   const handleCreateMemory = () => {
@@ -120,6 +121,7 @@ export default function JournalsScreen() {
       type: 'voice',
       date: new Date().toISOString().slice(0, 10),
       location: '',
+      taggedPeople: selectedPerson ? [selectedPerson.id] : [],
     });
   };
 
@@ -143,6 +145,7 @@ export default function JournalsScreen() {
             type: 'voice',
             date: new Date().toISOString().slice(0, 10),
             location: '',
+            taggedPeople: selectedPerson ? [selectedPerson.id] : [],
           });
           setIsCreatingMemory(false);
         },
@@ -151,7 +154,7 @@ export default function JournalsScreen() {
   };
 
   const handleSaveMemory = () => {
-    if (!selectedJournal) {
+    if (!selectedPerson) {
       return;
     }
 
@@ -161,7 +164,7 @@ export default function JournalsScreen() {
     }
 
     setIsSubmittingMemory(true);
-    addEntry(selectedJournal.id, memoryDraft);
+    addEntry(memoryDraft.taggedPeople.length > 0 ? memoryDraft.taggedPeople : selectedPerson.id, memoryDraft);
 
     setTimeout(() => {
       setIsSubmittingMemory(false);
@@ -172,32 +175,33 @@ export default function JournalsScreen() {
         type: 'voice',
         date: new Date().toISOString().slice(0, 10),
         location: '',
+        taggedPeople: [selectedPerson.id],
       });
     }, 150);
   };
 
-  if (selectedJournal) {
+  if (selectedPerson) {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.header}>
-            <Pressable onPress={() => setSelectedJournalId(null)} style={styles.backButton}>
+            <Pressable onPress={() => setSelectedPersonId(null)} style={styles.backButton}>
               <ThemedText type="smallBold" style={styles.backText}>Back</ThemedText>
             </Pressable>
-            <ThemedText type="title" style={styles.title}>{selectedJournal.name}</ThemedText>
+            <ThemedText type="title" style={styles.title}>{selectedPerson.name}</ThemedText>
           </View>
 
-          <View style={[styles.hero, { backgroundColor: selectedJournal.coverColor }]}>
-            <ThemedText type="subtitle" style={styles.heroText}>{selectedJournal.type}</ThemedText>
-            <ThemedText type="small" style={styles.heroText}>{selectedJournal.privacy}</ThemedText>
+          <View style={[styles.hero, { backgroundColor: selectedPerson.coverColor }]}>
+            <ThemedText type="subtitle" style={styles.heroText}>{selectedPerson.type}</ThemedText>
+            <ThemedText type="small" style={styles.heroText}>{selectedPerson.privacy}</ThemedText>
           </View>
 
           <View style={styles.detailSummary}>
-            <ThemedText type="small">{selectedJournal.description || 'No description yet.'}</ThemedText>
+            <ThemedText type="small">{selectedPerson.description || 'No description yet.'}</ThemedText>
           </View>
 
           <View style={styles.actionRow}>
-            <ThemedText type="smallBold">Entries</ThemedText>
+            <ThemedText type="smallBold">Memories</ThemedText>
             <Pressable onPress={handleCreateMemory} style={styles.addButton}>
               <ThemedText type="smallBold" style={styles.addText}>+ New memory</ThemedText>
             </Pressable>
@@ -210,6 +214,7 @@ export default function JournalsScreen() {
               onSubmit={handleSaveMemory}
               onCancel={handleCancelMemory}
               isSubmitting={isSubmittingMemory}
+              availablePeople={people}
             />
           ) : (
             <FlatList
@@ -229,7 +234,7 @@ export default function JournalsScreen() {
               )}
               ListEmptyComponent={
                 <ThemedText type="small" style={styles.emptyState}>
-                  No memories yet for this journal.
+                  No memories yet for this person.
                 </ThemedText>
               }
             />
@@ -243,7 +248,7 @@ export default function JournalsScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>Journals</ThemedText>
+          <ThemedText type="title" style={styles.title}>People</ThemedText>
           <Pressable onPress={handleCreate} style={styles.createButton}>
             <ThemedText type="smallBold" style={styles.createButtonText}>+ New</ThemedText>
           </Pressable>
@@ -255,10 +260,10 @@ export default function JournalsScreen() {
               <Pressable onPress={() => setIsCreating(false)} style={styles.backButton}>
                 <ThemedText type="smallBold" style={styles.backText}>Back</ThemedText>
               </Pressable>
-              <ThemedText type="subtitle" style={styles.formTitle}>New journal</ThemedText>
+              <ThemedText type="subtitle" style={styles.formTitle}>New person</ThemedText>
             </View>
 
-            <JournalForm
+            <PersonForm
               draft={draft}
               onChange={setDraft}
               onSubmit={handleSubmit}
@@ -268,19 +273,19 @@ export default function JournalsScreen() {
           </View>
         ) : (
           <FlatList
-            data={journals}
+            data={people}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
             renderItem={({ item }) => (
-              <JournalCard
-                journal={item}
-                onPress={() => handleOpenJournal(item.id)}
+              <PersonCard
+                person={item}
+                onPress={() => handleOpenPerson(item.id)}
                 onDelete={() => handleDelete(item.id, item.name)}
               />
             )}
             ListEmptyComponent={
               <ThemedText type="small" style={styles.emptyState}>
-                No journals yet. Create your first one.
+                No people yet. Create your first one.
               </ThemedText>
             }
           />

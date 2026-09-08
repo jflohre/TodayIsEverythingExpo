@@ -3,12 +3,13 @@ import { useMemo, useState } from 'react';
 import { Alert, FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { EntryDraft, EntryForm } from '@/components/entry-form';
+import { EntryForm } from '@/components/entry-form';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useEntries } from '@/context/EntryContext';
-import { useJournal } from '@/context/JournalContext';
+import { usePerson } from '@/context/PersonContext';
+import { EntryDraft } from '@/types/entries';
 
 function formatDisplayDate(value: string) {
   if (!value) {
@@ -33,33 +34,36 @@ const emptyDraft: EntryDraft = {
   type: 'voice',
   date: new Date().toISOString().slice(0, 10),
   location: '',
+  taggedPeople: [],
 };
 
-export default function JournalDetailScreen() {
+export default function PersonMemoriesScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ journalId?: string }>();
-  const { journals } = useJournal();
-  const { addEntry, getEntriesForJournal, removeEntry } = useEntries();
+  const params = useLocalSearchParams<{ personId?: string }>();
+  const { people } = usePerson();
+  const { addEntry, getEntriesForPerson, removeEntry } = useEntries();
+  const person = useMemo(
+    () => people.find((item) => item.id === params.personId),
+    [people, params.personId],
+  );
   const [isCreating, setIsCreating] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
-  const [draft, setDraft] = useState<EntryDraft>(emptyDraft);
+  const [draft, setDraft] = useState<EntryDraft>({
+    ...emptyDraft,
+    taggedPeople: person ? [person.id] : [],
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const journal = useMemo(
-    () => journals.find((item) => item.id === params.journalId),
-    [journals, params.journalId],
-  );
-
   const entries = useMemo(
-    () => (journal ? getEntriesForJournal(journal.id) : []),
-    [getEntriesForJournal, journal],
+    () => (person ? getEntriesForPerson(person.id) : []),
+    [getEntriesForPerson, person],
   );
 
-  if (!journal) {
+  if (!person) {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
-          <ThemedText type="subtitle">Journal not found</ThemedText>
+          <ThemedText type="subtitle">Person not found</ThemedText>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <ThemedText type="smallBold" style={styles.backText}>Back</ThemedText>
           </Pressable>
@@ -82,7 +86,7 @@ export default function JournalDetailScreen() {
         text: 'Discard',
         style: 'destructive',
         onPress: () => {
-          setDraft(emptyDraft);
+          setDraft({ ...emptyDraft, taggedPeople: person ? [person.id] : [] });
           setIsCreating(false);
         },
       },
@@ -94,7 +98,7 @@ export default function JournalDetailScreen() {
   };
 
   const selectEntryType = (type: EntryDraft['type']) => {
-    setDraft({ ...emptyDraft, type });
+    setDraft({ ...emptyDraft, type, taggedPeople: person ? [person.id] : [] });
     setShowTypePicker(false);
     setIsCreating(true);
   };
@@ -106,7 +110,7 @@ export default function JournalDetailScreen() {
     }
 
     setIsSubmitting(true);
-    addEntry(journal.id, draft);
+    addEntry(draft.taggedPeople.length > 0 ? draft.taggedPeople : person.id, draft);
 
     setTimeout(() => {
       setIsSubmitting(false);
@@ -114,6 +118,7 @@ export default function JournalDetailScreen() {
       setDraft({
         ...emptyDraft,
         date: new Date().toISOString().slice(0, 10),
+        taggedPeople: [person.id],
       });
     }, 150);
   };
@@ -136,12 +141,12 @@ export default function JournalDetailScreen() {
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <ThemedText type="smallBold" style={styles.backText}>Back</ThemedText>
           </Pressable>
-          <ThemedText type="title" style={styles.title}>{journal.name}</ThemedText>
+          <ThemedText type="title" style={styles.title}>{person.name}</ThemedText>
         </View>
 
-        <View style={[styles.hero, { backgroundColor: journal.coverColor }]}>
-          <ThemedText type="subtitle" style={styles.heroText}>{journal.type}</ThemedText>
-          <ThemedText type="small" style={styles.heroText}>{journal.privacy}</ThemedText>
+        <View style={[styles.hero, { backgroundColor: person.coverColor }]}>
+          <ThemedText type="subtitle" style={styles.heroText}>{person.type}</ThemedText>
+          <ThemedText type="small" style={styles.heroText}>{person.privacy}</ThemedText>
         </View>
 
         <View style={styles.actionRow}>
@@ -180,6 +185,7 @@ export default function JournalDetailScreen() {
             onSubmit={handleCreateEntry}
             onCancel={handleCancelCreateEntry}
             isSubmitting={isSubmitting}
+            availablePeople={people}
           />
         ) : (
           <FlatList

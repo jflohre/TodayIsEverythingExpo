@@ -2,20 +2,20 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
-import { JournalDraft, JournalPrivacy, JournalType } from '@/types/journal';
+import { PersonDraft, PersonPrivacy, PersonType } from '@/types/person';
 
-const journalTypes: JournalType[] = ['child', 'spouse', 'parent', 'pet', 'family'];
-const privacyLevels: JournalPrivacy[] = ['private', 'family-only', 'shared'];
+const personTypes: PersonType[] = ['child', 'spouse', 'parent', 'pet', 'family'];
+const privacyLevels: PersonPrivacy[] = ['private', 'family-only', 'shared'];
 
-export function JournalForm({
+export function PersonForm({
   draft,
   onChange,
   onSubmit,
   onCancel,
   isSubmitting,
 }: {
-  draft: JournalDraft;
-  onChange: (next: JournalDraft) => void;
+  draft: PersonDraft;
+  onChange: (next: PersonDraft) => void;
   onSubmit: () => void;
   onCancel?: () => void;
   isSubmitting: boolean;
@@ -29,7 +29,7 @@ export function JournalForm({
       )}
 
       <View style={styles.fieldGroup}>
-        <ThemedText type="smallBold">Journal name</ThemedText>
+        <ThemedText type="smallBold">Person name</ThemedText>
         <TextInput
           value={draft.name}
           onChangeText={(value) => onChange({ ...draft, name: value })}
@@ -41,7 +41,7 @@ export function JournalForm({
       <View style={styles.fieldGroup}>
         <ThemedText type="smallBold">Who is this for?</ThemedText>
         <View style={styles.chipGroup}>
-          {journalTypes.map((type) => (
+          {personTypes.map((type) => (
             <Pressable
               key={type}
               onPress={() => onChange({ ...draft, type })}
@@ -84,7 +84,7 @@ export function JournalForm({
 
       <Pressable onPress={onSubmit} disabled={isSubmitting || !draft.name.trim()} style={styles.submitButton}>
         <ThemedText type="smallBold" style={styles.submitText}>
-          {isSubmitting ? 'Saving...' : 'Create journal'}
+          {isSubmitting ? 'Saving...' : 'Create person'}
         </ThemedText>
       </Pressable>
     </ScrollView>

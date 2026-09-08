@@ -32,27 +32,30 @@ Complete feature roadmap for the Expo app
 
 ---
 
-#### 2. Journal Management
+#### 2. People & Memory Collections
 **Status:** Planned  
 **Priority:** Critical  
 **Description:**
-- Create journals for different people (children, spouse, family members)
+- Create separate memory collections for different people (children, spouse, family members)
 - Set subject name and type
 - Choose privacy level (private, family-only, shared)
 - Set optional unlock dates (for time capsules)
-- Edit journal settings
-- Delete journals (with confirmation)
+- Edit person settings
+- Delete memory collections (with confirmation)
+- Allow one memory to be tagged to multiple people for shared family experiences
 
 **Screen:**
-- Journal list screen (cards showing all journals)
-- Create journal screen (form)
-- Journal settings screen
+- People list screen (cards showing all people)
+- Create person screen (form)
+- Person settings screen
+- Person memory timeline
 
 **Features:**
 - Subject type options: child, spouse, parent, pet, family
 - Privacy levels: private, family-only, shared
 - Cover photo selection
-- Journal metadata (created date, entry count)
+- Person metadata (created date, memory count)
+- Multi-person tagging for shared memories like family trips and milestones
 
 ---
 

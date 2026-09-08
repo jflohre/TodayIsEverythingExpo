@@ -2,39 +2,39 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
-import { Journal } from '@/types/journal';
+import { Person } from '@/types/person';
 
-export function JournalCard({
-  journal,
+export function PersonCard({
+  person,
   onPress,
   onDelete,
 }: {
-  journal: Journal;
+  person: Person;
   onPress?: () => void;
   onDelete?: () => void;
 }) {
   return (
     <View style={styles.card}>
       <Pressable onPress={onPress} style={styles.mainContent}>
-        <View style={[styles.iconWrap, { backgroundColor: journal.coverColor }]}>
+        <View style={[styles.iconWrap, { backgroundColor: person.coverColor }]}>
           <ThemedText type="smallBold" style={styles.iconText}>
-            {journal.name.charAt(0).toUpperCase()}
+            {person.name.charAt(0).toUpperCase()}
           </ThemedText>
         </View>
 
         <View style={styles.content}>
           <View style={styles.row}>
-            <ThemedText type="subtitle" style={styles.name}>{journal.name}</ThemedText>
+            <ThemedText type="subtitle" style={styles.name}>{person.name}</ThemedText>
           </View>
 
           <ThemedText type="small" style={styles.meta}>
-            {journal.type} • {journal.privacy}
+            {person.type} • {person.privacy}
           </ThemedText>
           <ThemedText type="small" style={styles.description}>
-            {journal.description || 'No description yet.'}
+            {person.description || 'No description yet.'}
           </ThemedText>
           <ThemedText type="small" style={styles.footer}>
-            {journal.entryCount} entries
+            {person.memoryCount} memories
           </ThemedText>
         </View>
       </Pressable>

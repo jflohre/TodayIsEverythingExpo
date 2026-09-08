@@ -1,10 +1,11 @@
-import { Journal } from '@/types/journal';
+import { Person } from '@/types/person';
 
 export type EntryKind = 'voice' | 'text' | 'video' | 'photo';
 
 export type JournalEntry = {
   id: string;
-  journalId: string;
+  personId: string;
+  taggedPeople: string[];
   title: string;
   body: string;
   type: EntryKind;
@@ -20,9 +21,10 @@ export type EntryDraft = {
   type: EntryKind;
   date: string;
   location: string;
+  taggedPeople: string[];
 };
 
 export type EntrySummary = {
-  journal: Journal;
+  person: Person;
   entries: JournalEntry[];
 };
