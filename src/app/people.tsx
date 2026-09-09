@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EntryForm } from '@/components/entry-form';
@@ -10,6 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useEntries } from '@/context/EntryContext';
+import { useGroups } from '@/context/GroupContext';
 import { usePerson } from '@/context/PersonContext';
 import { EntryDraft } from '@/types/entries';
 import { PersonDraft } from '@/types/person';
@@ -21,12 +22,18 @@ const emptyDraft: PersonDraft = {
   description: '',
 };
 
+const PERSON_NOTE_LIMIT = 220;
+
 export default function PeopleScreen() {
   const router = useRouter();
-  const { people, addPerson, removePerson } = usePerson();
+  const { people, addPerson, removePerson, updatePersonGroupIds, updatePersonDescription } = usePerson();
+  const { groups, addGroup, renameGroup, updateGroupColor, removeGroup, updateGroupMembers } = useGroups();
   const { getEntriesForPerson, addEntry } = useEntries();
   const [isCreating, setIsCreating] = useState(false);
+  const [isManagingGroups, setIsManagingGroups] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const [personDescription, setPersonDescription] = useState('');
   const [draft, setDraft] = useState<PersonDraft>(emptyDraft);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreatingMemory, setIsCreatingMemory] = useState(false);
@@ -43,6 +50,77 @@ export default function PeopleScreen() {
   const handleCreate = () => {
     setIsCreating(true);
     setDraft(emptyDraft);
+  };
+
+  const handleAddGroup = () => {
+    const trimmedName = newGroupName.trim();
+    if (!trimmedName) {
+      return;
+    }
+
+    const duplicate = groups.some(
+      (group) => group.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+    );
+
+    if (duplicate) {
+      setNewGroupName('');
+      return;
+    }
+
+    addGroup({ name: trimmedName, color: '#7ab8ff' });
+    setNewGroupName('');
+  };
+
+  const handleDeleteGroup = (groupId: string, groupName: string) => {
+    Alert.alert('Delete group', `Remove ${groupName}? This will also remove it from any people assigned to it.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          removeGroup(groupId);
+          people.forEach((person) => {
+            const nextGroupIds = (person.groupIds ?? []).filter((id) => id !== groupId);
+            if (nextGroupIds.length !== (person.groupIds ?? []).length) {
+              updatePersonGroupIds(person.id, nextGroupIds);
+            }
+          });
+        },
+      },
+    ]);
+  };
+
+  const handleRenameGroup = (groupId: string, nextName: string) => {
+    const trimmedName = nextName.trim();
+    if (!trimmedName) {
+      return;
+    }
+
+    renameGroup(groupId, trimmedName);
+  };
+
+  const handleUpdateGroupColor = (groupId: string, color: string) => {
+    updateGroupColor(groupId, color);
+  };
+
+  const togglePersonInGroup = (personId: string, groupId: string) => {
+    const person = people.find((item) => item.id === personId);
+    const group = groups.find((item) => item.id === groupId);
+
+    if (!person || !group) {
+      return;
+    }
+
+    const nextPersonGroupIds = (person.groupIds ?? []).includes(groupId)
+      ? (person.groupIds ?? []).filter((id) => id !== groupId)
+      : [...(person.groupIds ?? []), groupId];
+
+    const nextGroupPersonIds = (group.personIds ?? []).includes(personId)
+      ? (group.personIds ?? []).filter((id) => id !== personId)
+      : [...(group.personIds ?? []), personId];
+
+    updatePersonGroupIds(personId, nextPersonGroupIds);
+    updateGroupMembers(groupId, nextGroupPersonIds);
   };
 
   const handleCancelCreate = () => {
@@ -112,6 +190,10 @@ export default function PeopleScreen() {
     () => (selectedPerson ? getEntriesForPerson(selectedPerson.id) : []),
     [getEntriesForPerson, selectedPerson],
   );
+
+  useEffect(() => {
+    setPersonDescription(selectedPerson?.description ?? '');
+  }, [selectedPerson?.id, selectedPerson?.description]);
 
   const handleCreateMemory = () => {
     setIsCreatingMemory(true);
@@ -197,7 +279,44 @@ export default function PeopleScreen() {
           </View>
 
           <View style={styles.detailSummary}>
-            <ThemedText type="small">{selectedPerson.description || 'No description yet.'}</ThemedText>
+            <TextInput
+              value={personDescription}
+              onChangeText={(text) => {
+                const nextText = text.slice(0, PERSON_NOTE_LIMIT);
+                setPersonDescription(nextText);
+                updatePersonDescription(selectedPerson.id, nextText);
+              }}
+              placeholder="Add a note about this person"
+              multiline
+              maxLength={PERSON_NOTE_LIMIT}
+              style={styles.descriptionInput}
+              textAlignVertical="top"
+            />
+            <View style={styles.counterRow}>
+              <ThemedText type="small" style={styles.counterText}>
+                {personDescription.length}/{PERSON_NOTE_LIMIT}
+              </ThemedText>
+            </View>
+          </View>
+
+          <View style={styles.groupSection}>
+            <ThemedText type="smallBold">Groups</ThemedText>
+            <View style={styles.chipGroup}>
+              {groups.map((group) => {
+                const isSelected = (selectedPerson.groupIds ?? []).includes(group.id);
+
+                return (
+                  <Pressable
+                    key={group.id}
+                    onPress={() => togglePersonInGroup(selectedPerson.id, group.id)}
+                    style={[styles.chip, isSelected && styles.chipSelected]}>
+                    <ThemedText type="small" style={isSelected ? styles.chipTextSelected : undefined}>
+                      {group.name}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
 
           <View style={styles.actionRow}>
@@ -215,6 +334,7 @@ export default function PeopleScreen() {
               onCancel={handleCancelMemory}
               isSubmitting={isSubmittingMemory}
               availablePeople={people}
+              availableGroups={groups}
             />
           ) : (
             <FlatList
@@ -249,10 +369,88 @@ export default function PeopleScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <ThemedText type="title" style={styles.title}>People</ThemedText>
-          <Pressable onPress={handleCreate} style={styles.createButton}>
-            <ThemedText type="smallBold" style={styles.createButtonText}>+ New</ThemedText>
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable onPress={() => setIsManagingGroups((current) => !current)} style={styles.secondaryButton}>
+              <ThemedText type="smallBold" style={styles.secondaryButtonText}>Manage groups</ThemedText>
+            </Pressable>
+            <Pressable onPress={handleCreate} style={styles.createButton}>
+              <ThemedText type="smallBold" style={styles.createButtonText}>+ New</ThemedText>
+            </Pressable>
+          </View>
         </View>
+
+        {isManagingGroups ? (
+          <View style={styles.groupManager}>
+            <View style={styles.groupManagerHeader}>
+              <ThemedText type="subtitle">Groups</ThemedText>
+            </View>
+
+            <View style={styles.groupCreateRow}>
+              <TextInput
+                value={newGroupName}
+                onChangeText={setNewGroupName}
+                placeholder="Add a new group"
+                style={[styles.input, styles.groupInput]}
+              />
+              <Pressable onPress={handleAddGroup} disabled={!newGroupName.trim()} style={[styles.addGroupButton, !newGroupName.trim() && styles.addGroupButtonDisabled]}>
+                <ThemedText type="smallBold" style={styles.addGroupText}>Add</ThemedText>
+              </Pressable>
+            </View>
+
+            {groups.map((group) => (
+              <View key={group.id} style={styles.groupBlock}>
+                <View style={styles.groupRow}>
+                  <View style={[styles.colorSwatch, { backgroundColor: group.color }]} />
+                  <TextInput
+                    value={group.name}
+                    onChangeText={(value) => handleRenameGroup(group.id, value)}
+                    style={styles.groupNameInput}
+                  />
+                  <Pressable onPress={() => handleDeleteGroup(group.id, group.name)} style={styles.deleteGroupButton}>
+                    <ThemedText type="smallBold" style={styles.deleteGroupText}>Delete</ThemedText>
+                  </Pressable>
+                </View>
+
+                <View style={styles.groupMetaRow}>
+                  <ThemedText type="small" style={styles.metaText}>
+                    {(group.personIds ?? []).length} member{(group.personIds ?? []).length === 1 ? '' : 's'}
+                  </ThemedText>
+                </View>
+
+                <View style={styles.colorPickerRow}>
+                  {['#7ab8ff', '#ff7a7a', '#7bdcb5', '#f7b267', '#8b7cf6', '#f472b6', '#facc15', '#34d399'].map((color) => (
+                    <Pressable
+                      key={color}
+                      onPress={() => handleUpdateGroupColor(group.id, color)}
+                      style={[
+                        styles.colorOption,
+                        { backgroundColor: color },
+                        group.color === color && styles.colorOptionSelected,
+                      ]}
+                    />
+                  ))}
+                </View>
+
+                <View style={styles.chipGroup}>
+                  {people.map((person) => {
+                    const isSelected = (group.personIds ?? []).includes(person.id);
+
+                    return (
+                      <Pressable
+                        key={`${group.id}-${person.id}`}
+                        onPress={() => togglePersonInGroup(person.id, group.id)}
+                        style={[styles.chip, isSelected && styles.chipSelected]}>
+                        <ThemedText type="small" style={isSelected ? styles.chipTextSelected : undefined}>
+                          {person.name}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         {isCreating ? (
           <View style={styles.createLayout}>
@@ -269,6 +467,23 @@ export default function PeopleScreen() {
               onSubmit={handleSubmit}
               onCancel={handleCancelCreate}
               isSubmitting={isSubmitting}
+              availableGroups={groups}
+              onCreateGroup={(groupName) => {
+                const trimmedName = groupName.trim();
+                if (!trimmedName) {
+                  return;
+                }
+
+                const duplicate = groups.some(
+                  (group) => group.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+                );
+
+                if (duplicate) {
+                  return;
+                }
+
+                return addGroup({ name: trimmedName, color: '#7ab8ff' });
+              }}
             />
           </View>
         ) : (
@@ -279,6 +494,7 @@ export default function PeopleScreen() {
             renderItem={({ item }) => (
               <PersonCard
                 person={item}
+                groups={groups}
                 onPress={() => handleOpenPerson(item.id)}
                 onDelete={() => handleDelete(item.id, item.name)}
               />
@@ -309,6 +525,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.three,
+    gap: Spacing.two,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
   title: {
     fontSize: 38,
@@ -320,8 +542,136 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     borderRadius: 999,
   },
+  secondaryButton: {
+    backgroundColor: '#eef2ff',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: 999,
+  },
+  secondaryButtonText: {
+    color: '#1f2937',
+  },
   createButtonText: {
     color: '#fff',
+  },
+  groupManager: {
+    gap: Spacing.three,
+    marginBottom: Spacing.three,
+    padding: Spacing.three,
+    borderRadius: 18,
+    backgroundColor: '#f3f4f6',
+  },
+  groupManagerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  groupCreateRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    alignItems: 'center',
+  },
+  groupInput: {
+    flex: 1,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#dfe3ea',
+    borderRadius: 12,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    backgroundColor: '#fff',
+    fontSize: 16,
+  },
+  addGroupButton: {
+    backgroundColor: '#111827',
+    borderRadius: 10,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  addGroupButtonDisabled: {
+    opacity: 0.5,
+  },
+  addGroupText: {
+    color: '#fff',
+  },
+  groupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  groupBlock: {
+    gap: Spacing.two,
+  },
+  groupNameInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#dfe3ea',
+    borderRadius: 12,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    backgroundColor: '#fff',
+    fontSize: 16,
+  },
+  colorSwatch: {
+    width: 18,
+    height: 18,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  groupMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metaText: {
+    opacity: 0.7,
+  },
+  colorPickerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  colorOption: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  colorOptionSelected: {
+    borderColor: '#111827',
+  },
+  deleteGroupButton: {
+    backgroundColor: '#fee2e2',
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.two,
+    borderRadius: 10,
+  },
+  deleteGroupText: {
+    color: '#b91c1c',
+  },
+  groupSection: {
+    gap: Spacing.two,
+    marginBottom: Spacing.three,
+  },
+  chipGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  chip: {
+    backgroundColor: '#f0f1f4',
+    borderRadius: 999,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  chipSelected: {
+    backgroundColor: '#111827',
+  },
+  chipTextSelected: {
+    color: '#fff',
+    textTransform: 'capitalize',
   },
   createLayout: {
     flex: 1,
@@ -356,6 +706,21 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: Spacing.three,
     marginBottom: Spacing.three,
+  },
+  descriptionInput: {
+    minHeight: 86,
+    fontSize: 15,
+    color: '#111827',
+    lineHeight: 22,
+    padding: 0,
+  },
+  counterRow: {
+    marginTop: Spacing.two,
+    alignItems: 'flex-end',
+  },
+  counterText: {
+    opacity: 0.7,
+    fontSize: 12,
   },
   actionRow: {
     flexDirection: 'row',

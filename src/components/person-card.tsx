@@ -2,17 +2,25 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { Group } from '@/types/group';
 import { Person } from '@/types/person';
 
 export function PersonCard({
   person,
+  groups = [],
   onPress,
   onDelete,
 }: {
   person: Person;
+  groups?: Group[];
   onPress?: () => void;
   onDelete?: () => void;
 }) {
+  const groupedMemberships = (person.groupIds ?? [])
+    .map((groupId) => groups.find((group) => group.id === groupId))
+    .filter(Boolean) as Group[];
+  const groupNames = groupedMemberships.map((group) => group.name).join(', ');
+
   return (
     <View style={styles.card}>
       <Pressable onPress={onPress} style={styles.mainContent}>
@@ -30,9 +38,22 @@ export function PersonCard({
           <ThemedText type="small" style={styles.meta}>
             {person.type} • {person.privacy}
           </ThemedText>
-          <ThemedText type="small" style={styles.description}>
-            {person.description || 'No description yet.'}
-          </ThemedText>
+          {person.description ? (
+            <ThemedText type="small" style={styles.description}>
+              {person.description}
+            </ThemedText>
+          ) : null}
+          <View style={styles.groupRow}>
+            {groupedMemberships.length > 0 ? (
+              groupedMemberships.map((group) => (
+                <View key={group.id} style={[styles.groupPill, { backgroundColor: group.color }]}>
+                  <ThemedText type="smallBold" style={styles.groupPillText}>{group.name}</ThemedText>
+                </View>
+              ))
+            ) : (
+              <ThemedText type="small" style={styles.footer}>No groups</ThemedText>
+            )}
+          </View>
           <ThemedText type="small" style={styles.footer}>
             {person.memoryCount} memories
           </ThemedText>
@@ -101,6 +122,20 @@ const styles = StyleSheet.create({
   },
   footer: {
     opacity: 0.7,
+  },
+  groupRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  groupPill: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  groupPillText: {
+    color: '#fff',
+    fontSize: 11,
   },
   actions: {
     flexDirection: 'row',

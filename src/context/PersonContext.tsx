@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { useEntries } from '@/context/EntryContext';
 import { Person, PersonDraft } from '@/types/person';
 
 const STORAGE_KEY = 'today-is-everything-people';
@@ -33,6 +34,8 @@ type PersonContextValue = {
   isReady: boolean;
   addPerson: (draft: PersonDraft) => Person;
   removePerson: (id: string) => void;
+  updatePersonGroupIds: (personId: string, groupIds: string[]) => void;
+  updatePersonDescription: (personId: string, description: string) => void;
 };
 
 const PersonContext = createContext<PersonContextValue | undefined>(undefined);
@@ -40,6 +43,7 @@ const PersonContext = createContext<PersonContextValue | undefined>(undefined);
 export function PersonProvider({ children }: { children: ReactNode }) {
   const [people, setPeople] = useState<Person[]>(DEFAULT_PEOPLE);
   const [isReady, setIsReady] = useState(false);
+  const { entries } = useEntries();
 
   useEffect(() => {
     const loadPeople = async () => {
@@ -67,6 +71,22 @@ export function PersonProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    setPeople((current) =>
+      current.map((person) => {
+        const count = entries.filter((entry) => {
+          const taggedPeople = Array.isArray(entry.taggedPeople) ? entry.taggedPeople : [];
+          return entry.personId === person.id || taggedPeople.includes(person.id);
+        }).length;
+
+        return {
+          ...person,
+          memoryCount: count,
+        };
+      }),
+    );
+  }, [entries]);
+
+  useEffect(() => {
     if (!isReady) {
       return;
     }
@@ -89,6 +109,7 @@ export function PersonProvider({ children }: { children: ReactNode }) {
       type: draft.type,
       privacy: draft.privacy,
       description: draft.description.trim(),
+      groupIds: Array.isArray(draft.groupIds) ? draft.groupIds.filter(Boolean) : [],
       createdAt: new Date().toISOString(),
       coverColor: getCoverColor(draft.type),
       memoryCount: 0,
@@ -102,8 +123,28 @@ export function PersonProvider({ children }: { children: ReactNode }) {
     setPeople((current) => current.filter((person) => person.id !== id));
   };
 
+  const updatePersonGroupIds = (personId: string, groupIds: string[]) => {
+    setPeople((current) =>
+      current.map((person) =>
+        person.id === personId
+          ? { ...person, groupIds: groupIds.filter(Boolean) }
+          : person,
+      ),
+    );
+  };
+
+  const updatePersonDescription = (personId: string, description: string) => {
+    setPeople((current) =>
+      current.map((person) =>
+        person.id === personId
+          ? { ...person, description: description.trim() }
+          : person,
+      ),
+    );
+  };
+
   const value = useMemo<PersonContextValue>(
-    () => ({ people, isReady, addPerson, removePerson }),
+    () => ({ people, isReady, addPerson, removePerson, updatePersonGroupIds, updatePersonDescription }),
     [people, isReady],
   );
 

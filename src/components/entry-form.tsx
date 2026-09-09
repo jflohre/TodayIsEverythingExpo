@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { EntryDraft, EntryKind } from '@/types/entries';
+import { Group } from '@/types/group';
 import { Person } from '@/types/person';
 
 let DateTimePicker: any = null;
@@ -46,6 +47,7 @@ export function EntryForm({
   onCancel,
   isSubmitting,
   availablePeople = [],
+  availableGroups = [],
 }: {
   draft: EntryDraft;
   onChange: (next: EntryDraft) => void;
@@ -53,6 +55,7 @@ export function EntryForm({
   onCancel?: () => void;
   isSubmitting: boolean;
   availablePeople?: Person[];
+  availableGroups?: Group[];
 }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const dateValue = draft.date ? new Date(`${draft.date}T12:00:00`) : new Date();
@@ -65,6 +68,18 @@ export function EntryForm({
     onChange({
       ...draft,
       taggedPeople,
+    });
+  };
+
+  const toggleTaggedGroup = (groupId: string) => {
+    const taggedGroups = draft.taggedGroups ?? [];
+    const nextGroups = taggedGroups.includes(groupId)
+      ? taggedGroups.filter((id) => id !== groupId)
+      : [...taggedGroups, groupId];
+
+    onChange({
+      ...draft,
+      taggedGroups: nextGroups,
     });
   };
 
@@ -118,6 +133,28 @@ export function EntryForm({
           ))}
         </View>
       </View>
+
+      {availableGroups.length > 0 ? (
+        <View style={styles.fieldGroup}>
+          <ThemedText type="smallBold">Tagged groups</ThemedText>
+          <View style={styles.chipGroup}>
+            {availableGroups.map((group) => {
+              const isSelected = (draft.taggedGroups ?? []).includes(group.id);
+
+              return (
+                <Pressable
+                  key={group.id}
+                  onPress={() => toggleTaggedGroup(group.id)}
+                  style={[styles.chip, isSelected && styles.chipSelected]}>
+                  <ThemedText type="small" style={isSelected ? styles.chipTextSelected : undefined}>
+                    {group.name}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
 
       {availablePeople.length > 0 ? (
         <View style={styles.fieldGroup}>

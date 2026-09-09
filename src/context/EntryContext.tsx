@@ -19,13 +19,17 @@ const normalizeEntry = (entry: Partial<JournalEntry> & { taggedPeople?: string[]
   const taggedPeople = Array.isArray(entry.taggedPeople)
     ? entry.taggedPeople.filter(Boolean)
     : fallbackTag;
+  const taggedGroups = Array.isArray(entry.taggedGroups)
+    ? entry.taggedGroups.filter(Boolean)
+    : [];
 
   return {
     id: entry.id ?? `entry-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     personId: entry.personId ?? taggedPeople[0] ?? 'shared',
     taggedPeople,
+    taggedGroups,
     title: entry.title ?? '',
-  body: entry.body ?? '',
+    body: entry.body ?? '',
     type: entry.type ?? 'text',
     date: entry.date,
     location: entry.location,
@@ -106,6 +110,7 @@ export function EntryProvider({ children }: { children: ReactNode }) {
       id: `entry-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       personId: primaryPersonId,
       taggedPeople,
+      taggedGroups: Array.isArray(draft.taggedGroups) ? draft.taggedGroups.filter(Boolean) : [],
       title: draft.title.trim(),
       body: draft.body.trim(),
       type: draft.type,

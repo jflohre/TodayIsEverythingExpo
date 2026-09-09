@@ -8,6 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useEntries } from '@/context/EntryContext';
+import { useGroups } from '@/context/GroupContext';
 import { usePerson } from '@/context/PersonContext';
 import { EntryDraft } from '@/types/entries';
 
@@ -60,12 +61,15 @@ export default function MemoriesScreen() {
   const router = useRouter();
   const { entries, addEntry } = useEntries();
   const { people } = usePerson();
+  const { groups } = useGroups();
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [selectedType, setSelectedType] = useState<TypeFilterValue>('all');
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
   const [isPeopleMenuOpen, setIsPeopleMenuOpen] = useState(false);
+  const [isGroupsMenuOpen, setIsGroupsMenuOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [memoryDraft, setMemoryDraft] = useState<EntryDraft>(emptyMemoryDraft);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,6 +84,11 @@ export default function MemoriesScreen() {
     [people],
   );
 
+  const groupFilterOptions = useMemo(
+    () => [{ label: 'All', value: 'all' }, ...groups.map((group) => ({ label: group.name, value: group.id }))],
+    [groups],
+  );
+
   const sortedEntries = useMemo(() => {
     let baseEntries =
       selectedType === 'all' ? [...entries] : entries.filter((entry) => (entry.type || 'voice') === selectedType);
@@ -87,6 +96,12 @@ export default function MemoriesScreen() {
     if (selectedPersonIds.length > 0) {
       baseEntries = baseEntries.filter((entry) =>
         (entry.taggedPeople ?? []).some((personId) => selectedPersonIds.includes(personId)),
+      );
+    }
+
+    if (selectedGroupIds.length > 0) {
+      baseEntries = baseEntries.filter((entry) =>
+        (entry.taggedGroups ?? []).some((groupId) => selectedGroupIds.includes(groupId)),
       );
     }
 
@@ -142,13 +157,14 @@ export default function MemoriesScreen() {
     });
 
     return baseEntries;
-  }, [entries, selectedPersonIds, selectedType, sortDirection, sortKey]);
+  }, [entries, selectedGroupIds, selectedPersonIds, selectedType, sortDirection, sortKey]);
 
   const handleCreateMemory = () => {
     setIsCreating(true);
     setMemoryDraft({
       ...emptyMemoryDraft,
       taggedPeople: [],
+      taggedGroups: [],
     });
   };
 
@@ -195,6 +211,7 @@ export default function MemoriesScreen() {
       setSortKey('type');
       setIsTypeMenuOpen((current) => !current);
       setIsPeopleMenuOpen(false);
+      setIsGroupsMenuOpen(false);
       return;
     }
 
@@ -202,11 +219,13 @@ export default function MemoriesScreen() {
       setSortKey('taggedPeople');
       setIsPeopleMenuOpen((current) => !current);
       setIsTypeMenuOpen(false);
+      setIsGroupsMenuOpen(false);
       return;
     }
 
     setIsTypeMenuOpen(false);
     setIsPeopleMenuOpen(false);
+    setIsGroupsMenuOpen(false);
 
     if (sortKey === nextKey) {
       setSortDirection((current) => (current === 'desc' ? 'asc' : 'desc'));
@@ -243,6 +262,19 @@ export default function MemoriesScreen() {
     return `Tagged people: ${names || 'Selected'}`;
   };
 
+  const getGroupsLabel = () => {
+    if (selectedGroupIds.length === 0) {
+      return 'Groups';
+    }
+
+    const names = selectedGroupIds
+      .map((groupId) => groups.find((group) => group.id === groupId)?.name)
+      .filter(Boolean)
+      .join(', ');
+
+    return `Groups: ${names || 'Selected'}`;
+  };
+
   const toggleSelectedPerson = (personId: string) => {
     setSelectedPersonIds((current) => {
       if (personId === 'all') {
@@ -275,6 +307,7 @@ export default function MemoriesScreen() {
             onCancel={handleCancelMemory}
             isSubmitting={isSubmitting}
             availablePeople={people}
+            availableGroups={groups}
           />
         ) : (
           <>
@@ -374,6 +407,49 @@ export default function MemoriesScreen() {
 
                   <Pressable
                     onPress={() => setIsPeopleMenuOpen(false)}
+                    style={[styles.typeFilterButton, styles.closeFilterButton]}>
+                    <ThemedText type="smallBold" style={styles.typeFilterText}>Done</ThemedText>
+                  </Pressable>
+                </View>
+              )}
+
+              {isGroupsMenuOpen && (
+                <View style={styles.typeFilterRow}>
+                  {groupFilterOptions.map((option) => {
+                    const isSelected = option.value === 'all' ? selectedGroupIds.length === 0 : selectedGroupIds.includes(option.value);
+                    const group = groups.find((item) => item.id === option.value);
+
+                    return (
+                      <Pressable
+                        key={option.value}
+                        onPress={() => {
+                          if (option.value === 'all') {
+                            setSelectedGroupIds([]);
+                            return;
+                          }
+
+                          setSelectedGroupIds((current) =>
+                            current.includes(option.value)
+                              ? current.filter((id) => id !== option.value)
+                              : [...current, option.value],
+                          );
+                        }}
+                        style={[
+                          styles.typeFilterButton,
+                          isSelected && styles.typeFilterButtonActive,
+                          !isSelected && group ? { borderColor: group.color, borderWidth: 1 } : null,
+                        ]}>
+                        <ThemedText
+                          type="smallBold"
+                          style={isSelected ? styles.typeFilterTextActive : styles.typeFilterText}>
+                          {option.label}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+
+                  <Pressable
+                    onPress={() => setIsGroupsMenuOpen(false)}
                     style={[styles.typeFilterButton, styles.closeFilterButton]}>
                     <ThemedText type="smallBold" style={styles.typeFilterText}>Done</ThemedText>
                   </Pressable>

@@ -10,6 +10,7 @@ export type Person = {
   createdAt: string;
   coverColor: string;
   memoryCount: number;
+  groupIds?: string[];
 };
 
 export type PersonDraft = {
@@ -17,4 +18,5 @@ export type PersonDraft = {
   type: PersonType;
   privacy: PersonPrivacy;
   description: string;
+  groupIds?: string[];
 };

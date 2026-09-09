@@ -6,6 +6,7 @@ export type JournalEntry = {
   id: string;
   personId: string;
   taggedPeople: string[];
+  taggedGroups?: string[];
   title: string;
   body: string;
   type: EntryKind;
@@ -22,6 +23,7 @@ export type EntryDraft = {
   date: string;
   location: string;
   taggedPeople: string[];
+  taggedGroups?: string[];
 };
 
 export type EntrySummary = {

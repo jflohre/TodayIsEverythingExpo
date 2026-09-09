@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { Group } from '@/types/group';
 import { PersonDraft, PersonPrivacy, PersonType } from '@/types/person';
 
 const personTypes: PersonType[] = ['child', 'spouse', 'parent', 'pet', 'family'];
@@ -13,13 +15,39 @@ export function PersonForm({
   onSubmit,
   onCancel,
   isSubmitting,
+  availableGroups = [],
+  onCreateGroup,
 }: {
   draft: PersonDraft;
   onChange: (next: PersonDraft) => void;
   onSubmit: () => void;
   onCancel?: () => void;
   isSubmitting: boolean;
+  availableGroups?: Group[];
+  onCreateGroup?: (groupName: string) => Group | void;
 }) {
+  const [newGroupName, setNewGroupName] = useState('');
+
+  const handleCreateGroup = () => {
+    const trimmedName = newGroupName.trim();
+    if (!trimmedName || !onCreateGroup) {
+      return;
+    }
+
+    const createdGroup = onCreateGroup(trimmedName);
+    const createdGroupId = createdGroup?.id ?? availableGroups.find((group) => group.name.toLowerCase() === trimmedName.toLowerCase())?.id;
+
+    if (createdGroupId) {
+      const nextGroupIds = (draft.groupIds ?? []).includes(createdGroupId)
+        ? draft.groupIds ?? []
+        : [...(draft.groupIds ?? []), createdGroupId];
+
+      onChange({ ...draft, groupIds: nextGroupIds });
+    }
+
+    setNewGroupName('');
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {onCancel && (
@@ -68,6 +96,51 @@ export function PersonForm({
             </Pressable>
           ))}
         </View>
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <ThemedText type="smallBold">Groups</ThemedText>
+
+        {onCreateGroup ? (
+          <View style={styles.groupCreateRow}>
+            <TextInput
+              value={newGroupName}
+              onChangeText={setNewGroupName}
+              placeholder="Add new group"
+              style={[styles.input, styles.groupInput]}
+            />
+            <Pressable onPress={handleCreateGroup} disabled={!newGroupName.trim()} style={[styles.addGroupButton, !newGroupName.trim() && styles.addGroupButtonDisabled]}>
+              <ThemedText type="smallBold" style={styles.addGroupText}>Add</ThemedText>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {availableGroups.length > 0 ? (
+          <View style={styles.chipGroup}>
+            {availableGroups.map((group) => {
+              const isSelected = (draft.groupIds ?? []).includes(group.id);
+
+              return (
+                <Pressable
+                  key={group.id}
+                  onPress={() => {
+                    const nextGroupIds = (draft.groupIds ?? []).includes(group.id)
+                      ? (draft.groupIds ?? []).filter((id) => id !== group.id)
+                      : [...(draft.groupIds ?? []), group.id];
+
+                    onChange({ ...draft, groupIds: nextGroupIds });
+                  }}
+                  style={[styles.chip, isSelected && styles.chipSelected]}>
+                  <ThemedText type="small" style={isSelected ? styles.chipTextSelected : undefined}>
+                    {group.name}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : (
+          <ThemedText type="small" style={styles.helperText}>No groups yet. Add one above.</ThemedText>
+        )}
       </View>
 
       <View style={styles.fieldGroup}>
@@ -124,6 +197,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.two,
+  },
+  groupCreateRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    alignItems: 'center',
+  },
+  groupInput: {
+    flex: 1,
+  },
+  addGroupButton: {
+    backgroundColor: '#111827',
+    borderRadius: 10,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  addGroupButtonDisabled: {
+    opacity: 0.5,
+  },
+  addGroupText: {
+    color: '#fff',
+  },
+  helperText: {
+    opacity: 0.7,
   },
   chip: {
     backgroundColor: '#f0f1f4',
