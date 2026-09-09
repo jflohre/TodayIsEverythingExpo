@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { useGroups } from '@/context/GroupContext';
 import { EntryDraft, JournalEntry } from '@/types/entries';
 
 const STORAGE_KEY = 'today-is-everything-entries';
@@ -8,6 +9,7 @@ const STORAGE_KEY = 'today-is-everything-entries';
 type EntryContextValue = {
   entries: JournalEntry[];
   addEntry: (personIds: string[] | string, draft: EntryDraft) => JournalEntry;
+  updateEntry: (id: string, draft: EntryDraft) => JournalEntry | null;
   removeEntry: (id: string) => void;
   getEntriesForPerson: (personId: string) => JournalEntry[];
 };
@@ -65,6 +67,16 @@ const SAMPLE_ENTRIES: JournalEntry[] = [
 
 export function EntryProvider({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<JournalEntry[]>(SAMPLE_ENTRIES);
+  const { groups } = useGroups();
+
+  const getExpandedTaggedPeople = (draft: EntryDraft) => {
+    const selectedPeople = Array.isArray(draft.taggedPeople) ? draft.taggedPeople : [];
+    const groupMembers = (Array.isArray(draft.taggedGroups) ? draft.taggedGroups : [])
+      .flatMap((groupId) => groups.find((group) => group.id === groupId)?.personIds ?? [])
+      .filter(Boolean);
+
+    return [...new Set([...selectedPeople, ...groupMembers])];
+  };
 
   useEffect(() => {
     const loadEntries = async () => {
@@ -100,10 +112,12 @@ export function EntryProvider({ children }: { children: ReactNode }) {
 
   const addEntry = (personIds: string[] | string, draft: EntryDraft) => {
     const normalizedIds = Array.isArray(personIds) ? personIds : [personIds];
-    const selectedPeople = (draft.taggedPeople?.length ? draft.taggedPeople : normalizedIds)
+    const explicitPeople = (draft.taggedPeople?.length ? draft.taggedPeople : normalizedIds)
       .filter(Boolean)
       .filter((value, index, array) => array.indexOf(value) === index);
-    const taggedPeople = selectedPeople.length > 0 ? selectedPeople : [];
+    const taggedPeople = getExpandedTaggedPeople({ ...draft, taggedPeople: explicitPeople }).filter(
+      (value, index, array) => array.indexOf(value) === index,
+    );
     const primaryPersonId = taggedPeople[0] ?? 'shared';
 
     const newEntry: JournalEntry = {
@@ -124,6 +138,38 @@ export function EntryProvider({ children }: { children: ReactNode }) {
     return newEntry;
   };
 
+  const updateEntry = (id: string, draft: EntryDraft) => {
+    let updatedEntry: JournalEntry | null = null;
+
+    setEntries((current) =>
+      current.map((entry) => {
+        if (entry.id !== id) {
+          return entry;
+        }
+
+        const selectedPeople = getExpandedTaggedPeople(draft).filter(
+          (value, index, array) => array.indexOf(value) === index,
+        );
+
+        updatedEntry = {
+          ...entry,
+          personId: selectedPeople[0] ?? entry.personId,
+          taggedPeople: selectedPeople.length > 0 ? selectedPeople : [entry.personId],
+          taggedGroups: Array.isArray(draft.taggedGroups) ? draft.taggedGroups.filter(Boolean) : [],
+          title: draft.title.trim(),
+          body: draft.body.trim(),
+          type: draft.type,
+          date: draft.date.trim() || undefined,
+          location: draft.location.trim() || undefined,
+        };
+
+        return updatedEntry;
+      }),
+    );
+
+    return updatedEntry;
+  };
+
   const removeEntry = (id: string) => {
     setEntries((current) => current.filter((entry) => entry.id !== id));
   };
@@ -135,7 +181,7 @@ export function EntryProvider({ children }: { children: ReactNode }) {
     });
 
   const value = useMemo<EntryContextValue>(
-    () => ({ entries, addEntry, removeEntry, getEntriesForPerson }),
+    () => ({ entries, addEntry, updateEntry, removeEntry, getEntriesForPerson }),
     [entries],
   );
 

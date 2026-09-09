@@ -59,7 +59,7 @@ const emptyMemoryDraft: EntryDraft = {
 
 export default function MemoriesScreen() {
   const router = useRouter();
-  const { entries, addEntry } = useEntries();
+  const { entries, addEntry, updateEntry, removeEntry } = useEntries();
   const { people } = usePerson();
   const { groups } = useGroups();
   const [sortKey, setSortKey] = useState<SortKey>('date');
@@ -71,6 +71,7 @@ export default function MemoriesScreen() {
   const [isPeopleMenuOpen, setIsPeopleMenuOpen] = useState(false);
   const [isGroupsMenuOpen, setIsGroupsMenuOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [memoryDraft, setMemoryDraft] = useState<EntryDraft>(emptyMemoryDraft);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -160,11 +161,26 @@ export default function MemoriesScreen() {
   }, [entries, selectedGroupIds, selectedPersonIds, selectedType, sortDirection, sortKey]);
 
   const handleCreateMemory = () => {
+    setEditingEntryId(null);
     setIsCreating(true);
     setMemoryDraft({
       ...emptyMemoryDraft,
       taggedPeople: [],
       taggedGroups: [],
+    });
+  };
+
+  const handleEditMemory = (entry: (typeof entries)[number]) => {
+    setEditingEntryId(entry.id);
+    setIsCreating(true);
+    setMemoryDraft({
+      title: entry.title,
+      body: entry.body,
+      type: entry.type,
+      date: entry.date || new Date().toISOString().slice(0, 10),
+      location: entry.location || '',
+      taggedPeople: entry.taggedPeople ?? [],
+      taggedGroups: entry.taggedGroups ?? [],
     });
   };
 
@@ -174,16 +190,18 @@ export default function MemoriesScreen() {
 
     if (!hasDraftContent) {
       setIsCreating(false);
+      setEditingEntryId(null);
       return;
     }
 
-    Alert.alert('Discard draft?', 'Your new memory will be lost.', [
+    Alert.alert('Discard draft?', 'Your memory draft will be lost.', [
       { text: 'Keep editing', style: 'cancel' },
       {
         text: 'Discard',
         style: 'destructive',
         onPress: () => {
           setMemoryDraft(emptyMemoryDraft);
+          setEditingEntryId(null);
           setIsCreating(false);
         },
       },
@@ -197,13 +215,30 @@ export default function MemoriesScreen() {
     }
 
     setIsSubmitting(true);
-    addEntry(memoryDraft.taggedPeople.length > 0 ? memoryDraft.taggedPeople : [], memoryDraft);
+
+    if (editingEntryId) {
+      updateEntry(editingEntryId, memoryDraft);
+    } else {
+      addEntry(memoryDraft.taggedPeople.length > 0 ? memoryDraft.taggedPeople : [], memoryDraft);
+    }
 
     setTimeout(() => {
       setIsSubmitting(false);
       setIsCreating(false);
+      setEditingEntryId(null);
       setMemoryDraft(emptyMemoryDraft);
     }, 150);
+  };
+
+  const handleDeleteMemory = (entry: (typeof entries)[number]) => {
+    Alert.alert('Delete memory', `Remove “${entry.title}”? This cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => removeEntry(entry.id),
+      },
+    ]);
   };
 
   const handleSortOptionPress = (nextKey: SortKey) => {
@@ -287,6 +322,28 @@ export default function MemoriesScreen() {
 
       return [...current, personId];
     });
+  };
+
+  const getTaggedDisplayText = (entry: (typeof entries)[number]) => {
+    const personNames = (entry.taggedPeople ?? [])
+      .map((personId) => peopleById[personId]?.name)
+      .filter(Boolean)
+      .join(', ');
+
+    const groupNames = (entry.taggedGroups ?? [])
+      .map((groupId) => groups.find((group) => group.id === groupId)?.name)
+      .filter(Boolean)
+      .join(', ');
+
+    if (personNames && groupNames) {
+      return `${groupNames} • ${personNames}`;
+    }
+
+    if (groupNames) {
+      return `${groupNames} • ${personNames || 'Group members'}`;
+    }
+
+    return personNames || 'No people tagged';
   };
 
   return (
@@ -462,39 +519,44 @@ export default function MemoriesScreen() {
               keyExtractor={(item) => item.id}
               contentContainerStyle={styles.list}
               renderItem={({ item }) => {
-            const taggedNames = (item.taggedPeople ?? [])
-              .map((personId) => peopleById[personId]?.name)
-              .filter(Boolean)
-              .join(', ');
-            const displayPeopleText = taggedNames || 'No people tagged';
+                const displayPeopleText = getTaggedDisplayText(item);
 
-            return (
-              <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <ThemedText type="smallBold">{item.title}</ThemedText>
-                  <ThemedText type="small" style={styles.typeText}>{item.type}</ThemedText>
-                </View>
+                return (
+                  <View style={styles.card}>
+                    <View style={styles.cardHeader}>
+                      <ThemedText type="smallBold">{item.title}</ThemedText>
+                      <ThemedText type="small" style={styles.typeText}>{item.type}</ThemedText>
+                    </View>
 
-                <ThemedText type="small" style={styles.metaText}>
-                  Created: {new Date(item.createdAt).toLocaleDateString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </ThemedText>
+                    <ThemedText type="small" style={styles.metaText}>
+                      Created: {new Date(item.createdAt).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </ThemedText>
 
-                <ThemedText type="small" style={styles.metaText}>
-                  Date: {formatDisplayDate(item.date)}
-                </ThemedText>
+                    <ThemedText type="small" style={styles.metaText}>
+                      Date: {formatDisplayDate(item.date)}
+                    </ThemedText>
 
-                <ThemedText type="small" style={styles.metaText}>People: {displayPeopleText}</ThemedText>
+                    <ThemedText type="small" style={styles.metaText}>People: {displayPeopleText}</ThemedText>
 
-                <ThemedText type="small" style={styles.bodyText}>
-                  {item.body || 'No details added yet.'}
-                </ThemedText>
-              </View>
-            );
-          }}
+                    <ThemedText type="small" style={styles.bodyText}>
+                      {item.body || 'No details added yet.'}
+                    </ThemedText>
+
+                    <View style={styles.memoryActions}>
+                      <Pressable onPress={() => handleEditMemory(item)} style={styles.inlineActionButton}>
+                        <ThemedText type="smallBold" style={styles.inlineActionText}>Edit</ThemedText>
+                      </Pressable>
+                      <Pressable onPress={() => handleDeleteMemory(item)} style={[styles.inlineActionButton, styles.deleteActionButton]}>
+                        <ThemedText type="smallBold" style={styles.deleteActionText}>Delete</ThemedText>
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              }}
               ListEmptyComponent={
                 <ThemedText type="small" style={styles.emptyState}>No memories yet. Create your first one.</ThemedText>
               }
@@ -611,6 +673,27 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: Spacing.three,
     gap: Spacing.one,
+  },
+  memoryActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: Spacing.two,
+    marginTop: Spacing.one,
+  },
+  inlineActionButton: {
+    backgroundColor: '#e5e7eb',
+    borderRadius: 10,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+  },
+  inlineActionText: {
+    color: '#111827',
+  },
+  deleteActionButton: {
+    backgroundColor: '#fee2e2',
+  },
+  deleteActionText: {
+    color: '#b91c1c',
   },
   cardHeader: {
     flexDirection: 'row',

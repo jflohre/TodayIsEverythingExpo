@@ -28,7 +28,7 @@ export default function PeopleScreen() {
   const router = useRouter();
   const { people, addPerson, removePerson, updatePersonGroupIds, updatePersonDescription } = usePerson();
   const { groups, addGroup, renameGroup, updateGroupColor, removeGroup, updateGroupMembers } = useGroups();
-  const { getEntriesForPerson, addEntry } = useEntries();
+  const { getEntriesForPerson, addEntry, updateEntry, removeEntry } = useEntries();
   const [isCreating, setIsCreating] = useState(false);
   const [isManagingGroups, setIsManagingGroups] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -37,6 +37,7 @@ export default function PeopleScreen() {
   const [draft, setDraft] = useState<PersonDraft>(emptyDraft);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreatingMemory, setIsCreatingMemory] = useState(false);
+  const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null);
   const [memoryDraft, setMemoryDraft] = useState<EntryDraft>({
     title: '',
     body: '',
@@ -196,6 +197,7 @@ export default function PeopleScreen() {
   }, [selectedPerson?.id, selectedPerson?.description]);
 
   const handleCreateMemory = () => {
+    setEditingMemoryId(null);
     setIsCreatingMemory(true);
     setMemoryDraft({
       title: '',
@@ -207,11 +209,48 @@ export default function PeopleScreen() {
     });
   };
 
+  const getTaggedDisplayText = (entry: (typeof selectedEntries)[number]) => {
+    const personNames = (entry.taggedPeople ?? [])
+      .map((personId) => people.find((person) => person.id === personId)?.name)
+      .filter(Boolean)
+      .join(', ');
+
+    const groupNames = (entry.taggedGroups ?? [])
+      .map((groupId) => groups.find((group) => group.id === groupId)?.name)
+      .filter(Boolean)
+      .join(', ');
+
+    if (personNames && groupNames) {
+      return `${groupNames} • ${personNames}`;
+    }
+
+    if (groupNames) {
+      return `${groupNames} • ${personNames || 'Group members'}`;
+    }
+
+    return personNames || 'No people tagged';
+  };
+
+  const handleEditMemory = (entry: (typeof selectedEntries)[number]) => {
+    setEditingMemoryId(entry.id);
+    setIsCreatingMemory(true);
+    setMemoryDraft({
+      title: entry.title,
+      body: entry.body,
+      type: entry.type,
+      date: entry.date || new Date().toISOString().slice(0, 10),
+      location: entry.location || '',
+      taggedPeople: entry.taggedPeople ?? [],
+      taggedGroups: entry.taggedGroups ?? [],
+    });
+  };
+
   const handleCancelMemory = () => {
     const hasDraftContent = memoryDraft.title.trim() || memoryDraft.body.trim() || memoryDraft.type !== 'voice';
 
     if (!hasDraftContent) {
       setIsCreatingMemory(false);
+      setEditingMemoryId(null);
       return;
     }
 
@@ -230,6 +269,7 @@ export default function PeopleScreen() {
             taggedPeople: selectedPerson ? [selectedPerson.id] : [],
           });
           setIsCreatingMemory(false);
+          setEditingMemoryId(null);
         },
       },
     ]);
@@ -246,11 +286,17 @@ export default function PeopleScreen() {
     }
 
     setIsSubmittingMemory(true);
-    addEntry(memoryDraft.taggedPeople.length > 0 ? memoryDraft.taggedPeople : selectedPerson.id, memoryDraft);
+
+    if (editingMemoryId) {
+      updateEntry(editingMemoryId, memoryDraft);
+    } else {
+      addEntry(memoryDraft.taggedPeople.length > 0 ? memoryDraft.taggedPeople : selectedPerson.id, memoryDraft);
+    }
 
     setTimeout(() => {
       setIsSubmittingMemory(false);
       setIsCreatingMemory(false);
+      setEditingMemoryId(null);
       setMemoryDraft({
         title: '',
         body: '',
@@ -260,6 +306,17 @@ export default function PeopleScreen() {
         taggedPeople: [selectedPerson.id],
       });
     }, 150);
+  };
+
+  const handleDeleteMemory = (entry: (typeof selectedEntries)[number]) => {
+    Alert.alert('Delete memory', `Remove “${entry.title}”? This cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => removeEntry(entry.id),
+      },
+    ]);
   };
 
   if (selectedPerson) {
@@ -347,9 +404,21 @@ export default function PeopleScreen() {
                   <ThemedText type="small" style={styles.entryMeta}>
                     {item.type} • {new Date(item.createdAt).toLocaleDateString()}
                   </ThemedText>
+                  <ThemedText type="small" style={styles.entryMeta}>
+                    People: {getTaggedDisplayText(item)}
+                  </ThemedText>
                   <ThemedText type="small" style={styles.entryBody}>
                     {item.body || 'No story added yet.'}
                   </ThemedText>
+
+                  <View style={styles.memoryActions}>
+                    <Pressable onPress={() => handleEditMemory(item)} style={styles.inlineActionButton}>
+                      <ThemedText type="smallBold" style={styles.inlineActionText}>Edit</ThemedText>
+                    </Pressable>
+                    <Pressable onPress={() => handleDeleteMemory(item)} style={[styles.inlineActionButton, styles.deleteActionButton]}>
+                      <ThemedText type="smallBold" style={styles.deleteActionText}>Delete</ThemedText>
+                    </Pressable>
+                  </View>
                 </View>
               )}
               ListEmptyComponent={
@@ -743,6 +812,27 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     gap: Spacing.one,
     marginBottom: Spacing.three,
+  },
+  memoryActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: Spacing.two,
+    marginTop: Spacing.one,
+  },
+  inlineActionButton: {
+    backgroundColor: '#e5e7eb',
+    borderRadius: 10,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+  },
+  inlineActionText: {
+    color: '#111827',
+  },
+  deleteActionButton: {
+    backgroundColor: '#fee2e2',
+  },
+  deleteActionText: {
+    color: '#b91c1c',
   },
   entryMeta: {
     opacity: 0.7,
