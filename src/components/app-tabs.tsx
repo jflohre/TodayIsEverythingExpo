@@ -24,7 +24,7 @@ export default function AppTabs() {
       <NativeTabs.Trigger name="people">
         <NativeTabs.Trigger.Label>People</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
+          src={require('@/assets/images/tabIcons/people.png')}
           renderingMode="template"
         />
       </NativeTabs.Trigger>
@@ -32,7 +32,7 @@ export default function AppTabs() {
       <NativeTabs.Trigger name="memories">
         <NativeTabs.Trigger.Label>Memories</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
+          src={require('@/assets/images/tabIcons/memories.png')}
           renderingMode="template"
         />
       </NativeTabs.Trigger>
