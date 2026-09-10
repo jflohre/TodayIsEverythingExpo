@@ -3,10 +3,11 @@ import { useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ConfirmModal } from '@/components/confirm-modal';
 import { EntryForm } from '@/components/entry-form';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { useEntries } from '@/context/EntryContext';
 import { useGroups } from '@/context/GroupContext';
 import { usePerson } from '@/context/PersonContext';
@@ -74,6 +75,8 @@ export default function MemoriesScreen() {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [memoryDraft, setMemoryDraft] = useState<EntryDraft>(emptyMemoryDraft);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [discardModalOpen, setDiscardModalOpen] = useState(false);
+  const [deleteEntryTarget, setDeleteEntryTarget] = useState<(typeof entries)[number] | null>(null);
 
   const peopleById = useMemo(
     () => Object.fromEntries(people.map((person) => [person.id, person])),
@@ -194,18 +197,7 @@ export default function MemoriesScreen() {
       return;
     }
 
-    Alert.alert('Discard draft?', 'Your memory draft will be lost.', [
-      { text: 'Keep editing', style: 'cancel' },
-      {
-        text: 'Discard',
-        style: 'destructive',
-        onPress: () => {
-          setMemoryDraft(emptyMemoryDraft);
-          setEditingEntryId(null);
-          setIsCreating(false);
-        },
-      },
-    ]);
+    setDiscardModalOpen(true);
   };
 
   const handleSaveMemory = () => {
@@ -231,14 +223,7 @@ export default function MemoriesScreen() {
   };
 
   const handleDeleteMemory = (entry: (typeof entries)[number]) => {
-    Alert.alert('Delete memory', `Remove “${entry.title}”? This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => removeEntry(entry.id),
-      },
-    ]);
+    setDeleteEntryTarget(entry);
   };
 
   const handleSortOptionPress = (nextKey: SortKey) => {
@@ -285,16 +270,22 @@ export default function MemoriesScreen() {
   };
 
   const getTaggedPeopleLabel = () => {
-    if (selectedPersonIds.length === 0) {
+    if (selectedPersonIds.length === 0 && selectedGroupIds.length === 0) {
       return 'Tagged people';
     }
 
-    const names = selectedPersonIds
+    const peopleNames = selectedPersonIds
       .map((personId) => peopleById[personId]?.name)
       .filter(Boolean)
       .join(', ');
 
-    return `Tagged people: ${names || 'Selected'}`;
+    const groupNames = selectedGroupIds
+      .map((groupId) => groups.find((group) => group.id === groupId)?.name)
+      .filter(Boolean)
+      .join(', ');
+
+    const labelParts = [peopleNames, groupNames].filter(Boolean);
+    return `Tagged people: ${labelParts.join(' • ') || 'Selected'}`;
   };
 
   const getGroupsLabel = () => {
@@ -349,6 +340,36 @@ export default function MemoriesScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
+        <ConfirmModal
+          visible={discardModalOpen}
+          title="Discard draft?"
+          message="Your memory draft will be lost."
+          cancelText="Keep editing"
+          confirmText="Discard"
+          destructive
+          onCancel={() => setDiscardModalOpen(false)}
+          onConfirm={() => {
+            setMemoryDraft(emptyMemoryDraft);
+            setEditingEntryId(null);
+            setIsCreating(false);
+            setDiscardModalOpen(false);
+          }}
+        />
+        <ConfirmModal
+          visible={deleteEntryTarget !== null}
+          title="Delete memory"
+          message={deleteEntryTarget ? `Remove “${deleteEntryTarget.title}”? This cannot be undone.` : 'Remove this memory?'}
+          cancelText="Cancel"
+          confirmText="Delete"
+          destructive
+          onCancel={() => setDeleteEntryTarget(null)}
+          onConfirm={() => {
+            if (deleteEntryTarget) {
+              removeEntry(deleteEntryTarget.id);
+            }
+            setDeleteEntryTarget(null);
+          }}
+        />
         <View style={styles.header}>
           <ThemedText type="title" style={styles.title}>Memories</ThemedText>
           <Pressable onPress={handleCreateMemory} style={styles.createButton}>
@@ -435,23 +456,57 @@ export default function MemoriesScreen() {
 
               {isPeopleMenuOpen && (
                 <View style={styles.typeFilterRow}>
-                  {peopleFilterOptions.map((option) => {
-                    const isSelected = option.value === 'all' ? selectedPersonIds.length === 0 : selectedPersonIds.includes(option.value);
+                  <Pressable
+                    onPress={() => {
+                      setSelectedPersonIds([]);
+                      setSelectedGroupIds([]);
+                    }}
+                    style={[styles.typeFilterButton, selectedPersonIds.length === 0 && selectedGroupIds.length === 0 && styles.typeFilterButtonActive]}>
+                    <ThemedText
+                      type="smallBold"
+                      style={selectedPersonIds.length === 0 && selectedGroupIds.length === 0 ? styles.typeFilterTextActive : styles.typeFilterText}>
+                      All
+                    </ThemedText>
+                  </Pressable>
+
+                  {peopleFilterOptions.slice(1).map((option) => {
+                    const isSelected = selectedPersonIds.includes(option.value);
+
+                    return (
+                      <Pressable
+                        key={option.value}
+                        onPress={() => toggleSelectedPerson(option.value)}
+                        style={[
+                          styles.typeFilterButton,
+                          isSelected && styles.typeFilterButtonActive,
+                        ]}>
+                        <ThemedText
+                          type="smallBold"
+                          style={isSelected ? styles.typeFilterTextActive : styles.typeFilterText}>
+                          {option.label}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+
+                  {groupFilterOptions.slice(1).map((option) => {
+                    const group = groups.find((item) => item.id === option.value);
+                    const isSelected = selectedGroupIds.includes(option.value);
 
                     return (
                       <Pressable
                         key={option.value}
                         onPress={() => {
-                          if (option.value === 'all') {
-                            setSelectedPersonIds([]);
-                            return;
-                          }
-
-                          toggleSelectedPerson(option.value);
+                          setSelectedGroupIds((current) =>
+                            current.includes(option.value)
+                              ? current.filter((id) => id !== option.value)
+                              : [...current, option.value],
+                          );
                         }}
                         style={[
                           styles.typeFilterButton,
                           isSelected && styles.typeFilterButtonActive,
+                          !isSelected && group ? { borderColor: group.color, borderWidth: 1 } : null,
                         ]}>
                         <ThemedText
                           type="smallBold"
@@ -524,7 +579,7 @@ export default function MemoriesScreen() {
                 return (
                   <View style={styles.card}>
                     <View style={styles.cardHeader}>
-                      <ThemedText type="smallBold">{item.title}</ThemedText>
+                      <ThemedText type="smallBold" style={styles.memoryTitle}>{item.title}</ThemedText>
                       <ThemedText type="small" style={styles.typeText}>{item.type}</ThemedText>
                     </View>
 
@@ -568,14 +623,18 @@ export default function MemoriesScreen() {
   );
 }
 
+const palette = Colors.light;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#1f272d',
   },
   safeArea: {
     flex: 1,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
+    backgroundColor: '#1f272d',
   },
   header: {
     flexDirection: 'row',
@@ -588,9 +647,10 @@ const styles = StyleSheet.create({
     fontSize: 38,
     lineHeight: 42,
     flexShrink: 1,
+    color: '#f5f7f8',
   },
   createButton: {
-    backgroundColor: '#111827',
+    backgroundColor: palette.brand,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: 999,
@@ -608,19 +668,22 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   sortButton: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#2d363d',
     borderRadius: 999,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
+    borderWidth: 1,
+    borderColor: '#46525b',
   },
   sortButtonActive: {
-    backgroundColor: '#111827',
+    backgroundColor: palette.brand,
+    borderColor: palette.brand,
   },
   sortButtonText: {
-    color: '#111827',
+    color: '#edf2f5',
   },
   sortButtonTextActive: {
-    color: '#fff',
+    color: '#ffffff',
   },
   typeFilterRow: {
     flexDirection: 'row',
@@ -628,51 +691,56 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   typeFilterButton: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#2d363d',
     borderRadius: 999,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
+    borderWidth: 1,
+    borderColor: '#46525b',
   },
   typeFilterButtonActive: {
-    backgroundColor: '#111827',
+    backgroundColor: palette.brand,
+    borderColor: palette.brand,
   },
   closeFilterButton: {
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#3b464e',
   },
   typeFilterText: {
-    color: '#111827',
+    color: '#edf2f5',
   },
   typeFilterTextActive: {
-    color: '#fff',
+    color: '#ffffff',
   },
   directionRow: {
     flexDirection: 'row',
     gap: Spacing.two,
   },
   directionButton: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#2d363d',
     borderRadius: 999,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
   directionButtonActive: {
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#3b464e',
   },
   directionText: {
-    color: '#111827',
+    color: '#edf2f5',
   },
   directionTextActive: {
-    color: '#111827',
+    color: '#edf2f5',
   },
   list: {
     gap: Spacing.three,
     paddingBottom: Spacing.six,
   },
   card: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 16,
+    backgroundColor: '#2a3137',
+    borderRadius: 18,
     padding: Spacing.three,
     gap: Spacing.one,
+    borderWidth: 1,
+    borderColor: '#404b52',
   },
   memoryActions: {
     flexDirection: 'row',
@@ -681,19 +749,21 @@ const styles = StyleSheet.create({
     marginTop: Spacing.one,
   },
   inlineActionButton: {
-    backgroundColor: '#e5e7eb',
-    borderRadius: 10,
-    paddingHorizontal: Spacing.two,
+    backgroundColor: palette.brand,
+    borderRadius: 999,
+    paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one,
+    minWidth: 86,
+    alignItems: 'center',
   },
   inlineActionText: {
-    color: '#111827',
+    color: '#ffffff',
   },
   deleteActionButton: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: '#d75b5b',
   },
   deleteActionText: {
-    color: '#b91c1c',
+    color: '#fff5f5',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -701,20 +771,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
   },
+  memoryTitle: {
+    color: '#edf2f5',
+  },
   typeText: {
     textTransform: 'capitalize',
-    opacity: 0.7,
+    color: '#dfe8ec',
+    opacity: 0.85,
   },
   metaText: {
-    opacity: 0.7,
+    color: '#dfe8ec',
+    opacity: 0.8,
     textTransform: 'capitalize',
   },
   bodyText: {
-    opacity: 0.8,
+    color: '#eef4f7',
+    opacity: 0.9,
   },
   emptyState: {
     textAlign: 'center',
     marginTop: Spacing.five,
-    opacity: 0.7,
+    color: '#dfe8ec',
+    opacity: 0.8,
   },
 });

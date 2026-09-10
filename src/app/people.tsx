@@ -3,12 +3,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ConfirmModal } from '@/components/confirm-modal';
 import { EntryForm } from '@/components/entry-form';
 import { PersonCard } from '@/components/person-card';
 import { PersonForm } from '@/components/person-form';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { useEntries } from '@/context/EntryContext';
 import { useGroups } from '@/context/GroupContext';
 import { usePerson } from '@/context/PersonContext';
@@ -38,6 +39,11 @@ export default function PeopleScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreatingMemory, setIsCreatingMemory] = useState(false);
   const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null);
+  const [groupDeleteTarget, setGroupDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [personDiscardOpen, setPersonDiscardOpen] = useState(false);
+  const [personDeleteTarget, setPersonDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [memoryDiscardOpen, setMemoryDiscardOpen] = useState(false);
+  const [memoryDeleteTarget, setMemoryDeleteTarget] = useState<(typeof selectedEntries)[number] | null>(null);
   const [memoryDraft, setMemoryDraft] = useState<EntryDraft>({
     title: '',
     body: '',
@@ -73,22 +79,7 @@ export default function PeopleScreen() {
   };
 
   const handleDeleteGroup = (groupId: string, groupName: string) => {
-    Alert.alert('Delete group', `Remove ${groupName}? This will also remove it from any people assigned to it.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          removeGroup(groupId);
-          people.forEach((person) => {
-            const nextGroupIds = (person.groupIds ?? []).filter((id) => id !== groupId);
-            if (nextGroupIds.length !== (person.groupIds ?? []).length) {
-              updatePersonGroupIds(person.id, nextGroupIds);
-            }
-          });
-        },
-      },
-    ]);
+    setGroupDeleteTarget({ id: groupId, name: groupName });
   };
 
   const handleRenameGroup = (groupId: string, nextName: string) => {
@@ -133,17 +124,7 @@ export default function PeopleScreen() {
       return;
     }
 
-    Alert.alert('Discard draft?', 'Your person draft will be lost.', [
-      { text: 'Keep editing', style: 'cancel' },
-      {
-        text: 'Discard',
-        style: 'destructive',
-        onPress: () => {
-          setDraft(emptyDraft);
-          setIsCreating(false);
-        },
-      },
-    ]);
+    setPersonDiscardOpen(true);
   };
 
   const handleSubmit = () => {
@@ -163,14 +144,7 @@ export default function PeopleScreen() {
   };
 
   const handleDelete = (id: string, name: string) => {
-    Alert.alert('Delete person', `Remove ${name}? This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => removePerson(id),
-      },
-    ]);
+    setPersonDeleteTarget({ id, name });
   };
 
   const handleOpenPerson = (id: string) => {
@@ -254,25 +228,7 @@ export default function PeopleScreen() {
       return;
     }
 
-    Alert.alert('Discard memory draft?', 'Your new memory will be lost.', [
-      { text: 'Keep editing', style: 'cancel' },
-      {
-        text: 'Discard',
-        style: 'destructive',
-        onPress: () => {
-          setMemoryDraft({
-            title: '',
-            body: '',
-            type: 'voice',
-            date: new Date().toISOString().slice(0, 10),
-            location: '',
-            taggedPeople: selectedPerson ? [selectedPerson.id] : [],
-          });
-          setIsCreatingMemory(false);
-          setEditingMemoryId(null);
-        },
-      },
-    ]);
+    setMemoryDiscardOpen(true);
   };
 
   const handleSaveMemory = () => {
@@ -309,20 +265,50 @@ export default function PeopleScreen() {
   };
 
   const handleDeleteMemory = (entry: (typeof selectedEntries)[number]) => {
-    Alert.alert('Delete memory', `Remove “${entry.title}”? This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => removeEntry(entry.id),
-      },
-    ]);
+    setMemoryDeleteTarget(entry);
   };
 
   if (selectedPerson) {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
+          <ConfirmModal
+            visible={memoryDiscardOpen}
+            title="Discard memory draft?"
+            message="Your new memory will be lost."
+            cancelText="Keep editing"
+            confirmText="Discard"
+            destructive
+            onCancel={() => setMemoryDiscardOpen(false)}
+            onConfirm={() => {
+              setMemoryDraft({
+                title: '',
+                body: '',
+                type: 'voice',
+                date: new Date().toISOString().slice(0, 10),
+                location: '',
+                taggedPeople: selectedPerson ? [selectedPerson.id] : [],
+              });
+              setIsCreatingMemory(false);
+              setEditingMemoryId(null);
+              setMemoryDiscardOpen(false);
+            }}
+          />
+          <ConfirmModal
+            visible={memoryDeleteTarget !== null}
+            title="Delete memory"
+            message={memoryDeleteTarget ? `Remove “${memoryDeleteTarget.title}”? This cannot be undone.` : 'Remove this memory?'}
+            cancelText="Cancel"
+            confirmText="Delete"
+            destructive
+            onCancel={() => setMemoryDeleteTarget(null)}
+            onConfirm={() => {
+              if (memoryDeleteTarget) {
+                removeEntry(memoryDeleteTarget.id);
+              }
+              setMemoryDeleteTarget(null);
+            }}
+          />
           <View style={styles.header}>
             <Pressable onPress={() => setSelectedPersonId(null)} style={styles.backButton}>
               <ThemedText type="smallBold" style={styles.backText}>Back</ThemedText>
@@ -344,6 +330,7 @@ export default function PeopleScreen() {
                 updatePersonDescription(selectedPerson.id, nextText);
               }}
               placeholder="Add a note about this person"
+              placeholderTextColor="#a9b6bf"
               multiline
               maxLength={PERSON_NOTE_LIMIT}
               style={styles.descriptionInput}
@@ -357,7 +344,7 @@ export default function PeopleScreen() {
           </View>
 
           <View style={styles.groupSection}>
-            <ThemedText type="smallBold">Groups</ThemedText>
+            <ThemedText type="smallBold" style={styles.sectionTitle}>Groups</ThemedText>
             <View style={styles.chipGroup}>
               {groups.map((group) => {
                 const isSelected = (selectedPerson.groupIds ?? []).includes(group.id);
@@ -367,7 +354,7 @@ export default function PeopleScreen() {
                     key={group.id}
                     onPress={() => togglePersonInGroup(selectedPerson.id, group.id)}
                     style={[styles.chip, isSelected && styles.chipSelected]}>
-                    <ThemedText type="small" style={isSelected ? styles.chipTextSelected : undefined}>
+                    <ThemedText type="small" style={isSelected ? styles.chipTextSelected : styles.chipText}>
                       {group.name}
                     </ThemedText>
                   </Pressable>
@@ -377,7 +364,7 @@ export default function PeopleScreen() {
           </View>
 
           <View style={styles.actionRow}>
-            <ThemedText type="smallBold">Memories</ThemedText>
+            <ThemedText type="smallBold" style={styles.sectionTitle}>Memories</ThemedText>
             <Pressable onPress={handleCreateMemory} style={styles.addButton}>
               <ThemedText type="smallBold" style={styles.addText}>+ New memory</ThemedText>
             </Pressable>
@@ -436,6 +423,56 @@ export default function PeopleScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
+        <ConfirmModal
+          visible={groupDeleteTarget !== null}
+          title="Delete group"
+          message={groupDeleteTarget ? `Remove ${groupDeleteTarget.name}? This will also remove it from any people assigned to it.` : 'Remove this group?'}
+          cancelText="Cancel"
+          confirmText="Delete"
+          destructive
+          onCancel={() => setGroupDeleteTarget(null)}
+          onConfirm={() => {
+            if (groupDeleteTarget) {
+              removeGroup(groupDeleteTarget.id);
+              people.forEach((person) => {
+                const nextGroupIds = (person.groupIds ?? []).filter((id) => id !== groupDeleteTarget.id);
+                if (nextGroupIds.length !== (person.groupIds ?? []).length) {
+                  updatePersonGroupIds(person.id, nextGroupIds);
+                }
+              });
+            }
+            setGroupDeleteTarget(null);
+          }}
+        />
+        <ConfirmModal
+          visible={personDiscardOpen}
+          title="Discard draft?"
+          message="Your person draft will be lost."
+          cancelText="Keep editing"
+          confirmText="Discard"
+          destructive
+          onCancel={() => setPersonDiscardOpen(false)}
+          onConfirm={() => {
+            setDraft(emptyDraft);
+            setIsCreating(false);
+            setPersonDiscardOpen(false);
+          }}
+        />
+        <ConfirmModal
+          visible={personDeleteTarget !== null}
+          title="Delete person"
+          message={personDeleteTarget ? `Remove ${personDeleteTarget.name}? This cannot be undone.` : 'Remove this person?'}
+          cancelText="Cancel"
+          confirmText="Delete"
+          destructive
+          onCancel={() => setPersonDeleteTarget(null)}
+          onConfirm={() => {
+            if (personDeleteTarget) {
+              removePerson(personDeleteTarget.id);
+            }
+            setPersonDeleteTarget(null);
+          }}
+        />
         <View style={styles.header}>
           <ThemedText type="title" style={styles.title}>People</ThemedText>
           <View style={styles.headerActions}>
@@ -451,7 +488,7 @@ export default function PeopleScreen() {
         {isManagingGroups ? (
           <View style={styles.groupManager}>
             <View style={styles.groupManagerHeader}>
-              <ThemedText type="subtitle">Groups</ThemedText>
+              <ThemedText type="subtitle" style={styles.groupManagerTitle}>Groups</ThemedText>
             </View>
 
             <View style={styles.groupCreateRow}>
@@ -459,6 +496,8 @@ export default function PeopleScreen() {
                 value={newGroupName}
                 onChangeText={setNewGroupName}
                 placeholder="Add a new group"
+                placeholderTextColor="#a9b6bf"
+                selectionColor="#7bd7e9"
                 style={[styles.input, styles.groupInput]}
               />
               <Pressable onPress={handleAddGroup} disabled={!newGroupName.trim()} style={[styles.addGroupButton, !newGroupName.trim() && styles.addGroupButtonDisabled]}>
@@ -473,6 +512,8 @@ export default function PeopleScreen() {
                   <TextInput
                     value={group.name}
                     onChangeText={(value) => handleRenameGroup(group.id, value)}
+                    placeholderTextColor="#a9b6bf"
+                    selectionColor="#7bd7e9"
                     style={styles.groupNameInput}
                   />
                   <Pressable onPress={() => handleDeleteGroup(group.id, group.name)} style={styles.deleteGroupButton}>
@@ -524,9 +565,6 @@ export default function PeopleScreen() {
         {isCreating ? (
           <View style={styles.createLayout}>
             <View style={styles.formHeader}>
-              <Pressable onPress={() => setIsCreating(false)} style={styles.backButton}>
-                <ThemedText type="smallBold" style={styles.backText}>Back</ThemedText>
-              </Pressable>
               <ThemedText type="subtitle" style={styles.formTitle}>New person</ThemedText>
             </View>
 
@@ -580,14 +618,18 @@ export default function PeopleScreen() {
   );
 }
 
+const palette = Colors.light;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#1f272d',
   },
   safeArea: {
     flex: 1,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
+    backgroundColor: '#1f272d',
   },
   header: {
     flexDirection: 'row',
@@ -604,21 +646,24 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 38,
     lineHeight: 42,
+    color: '#f5f7f8',
   },
   createButton: {
-    backgroundColor: '#111827',
+    backgroundColor: palette.brand,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: 999,
   },
   secondaryButton: {
-    backgroundColor: '#eef2ff',
+    backgroundColor: '#2d363d',
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#46525b',
   },
   secondaryButtonText: {
-    color: '#1f2937',
+    color: '#edf2f5',
   },
   createButtonText: {
     color: '#fff',
@@ -628,12 +673,20 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.three,
     padding: Spacing.three,
     borderRadius: 18,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#2a3137',
+    borderWidth: 1,
+    borderColor: '#404b52',
   },
   groupManagerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  groupManagerTitle: {
+    color: '#edf2f5',
+  },
+  sectionTitle: {
+    color: '#edf2f5',
   },
   groupCreateRow: {
     flexDirection: 'row',
@@ -645,15 +698,16 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#dfe3ea',
+    borderColor: '#46525b',
     borderRadius: 12,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    backgroundColor: '#fff',
+    backgroundColor: '#1f272d',
     fontSize: 16,
+    color: '#edf2f5',
   },
   addGroupButton: {
-    backgroundColor: '#111827',
+    backgroundColor: palette.brand,
     borderRadius: 10,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
@@ -675,12 +729,13 @@ const styles = StyleSheet.create({
   groupNameInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#dfe3ea',
+    borderColor: '#46525b',
     borderRadius: 12,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    backgroundColor: '#fff',
+    backgroundColor: '#1f272d',
     fontSize: 16,
+    color: '#edf2f5',
   },
   colorSwatch: {
     width: 18,
@@ -694,7 +749,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   metaText: {
-    opacity: 0.7,
+    opacity: 0.8,
+    color: '#dfe8ec',
   },
   colorPickerRow: {
     flexDirection: 'row',
@@ -709,16 +765,16 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   colorOptionSelected: {
-    borderColor: '#111827',
+    borderColor: '#edf2f5',
   },
   deleteGroupButton: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: '#d75b5b',
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.two,
     borderRadius: 10,
   },
   deleteGroupText: {
-    color: '#b91c1c',
+    color: '#fff5f5',
   },
   groupSection: {
     gap: Spacing.two,
@@ -730,13 +786,20 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   chip: {
-    backgroundColor: '#f0f1f4',
+    backgroundColor: '#2d363d',
     borderRadius: 999,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
+    borderWidth: 1,
+    borderColor: '#46525b',
   },
   chipSelected: {
-    backgroundColor: '#111827',
+    backgroundColor: palette.brand,
+    borderColor: palette.brand,
+  },
+  chipText: {
+    color: '#dfe8ec',
+    textTransform: 'capitalize',
   },
   chipTextSelected: {
     color: '#fff',
@@ -754,12 +817,13 @@ const styles = StyleSheet.create({
   formTitle: {
     fontSize: 26,
     lineHeight: 30,
+    color: '#edf2f5',
   },
   backButton: {
     paddingVertical: Spacing.one,
   },
   backText: {
-    color: '#3c87f7',
+    color: palette.brandSoft,
   },
   hero: {
     borderRadius: 16,
@@ -771,15 +835,17 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   detailSummary: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#2a3137',
     borderRadius: 14,
     padding: Spacing.three,
     marginBottom: Spacing.three,
+    borderWidth: 1,
+    borderColor: '#404b52',
   },
   descriptionInput: {
     minHeight: 86,
     fontSize: 15,
-    color: '#111827',
+    color: '#edf2f5',
     lineHeight: 22,
     padding: 0,
   },
@@ -788,8 +854,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   counterText: {
-    opacity: 0.7,
+    opacity: 0.8,
     fontSize: 12,
+    color: '#dfe8ec',
   },
   actionRow: {
     flexDirection: 'row',
@@ -798,7 +865,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.two,
   },
   addButton: {
-    backgroundColor: '#111827',
+    backgroundColor: palette.brand,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: 999,
@@ -807,11 +874,13 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   entryCard: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#2a3137',
     borderRadius: 16,
     padding: Spacing.three,
     gap: Spacing.one,
     marginBottom: Spacing.three,
+    borderWidth: 1,
+    borderColor: '#404b52',
   },
   memoryActions: {
     flexDirection: 'row',
@@ -820,26 +889,30 @@ const styles = StyleSheet.create({
     marginTop: Spacing.one,
   },
   inlineActionButton: {
-    backgroundColor: '#e5e7eb',
-    borderRadius: 10,
-    paddingHorizontal: Spacing.two,
+    backgroundColor: palette.brand,
+    borderRadius: 999,
+    paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one,
+    minWidth: 86,
+    alignItems: 'center',
   },
   inlineActionText: {
-    color: '#111827',
+    color: '#fff',
   },
   deleteActionButton: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: '#d75b5b',
   },
   deleteActionText: {
-    color: '#b91c1c',
+    color: '#fff5f5',
   },
   entryMeta: {
-    opacity: 0.7,
+    opacity: 0.8,
     textTransform: 'capitalize',
+    color: '#dfe8ec',
   },
   entryBody: {
-    opacity: 0.8,
+    opacity: 0.9,
+    color: '#edf2f5',
   },
   list: {
     gap: Spacing.three,
@@ -848,6 +921,7 @@ const styles = StyleSheet.create({
   emptyState: {
     textAlign: 'center',
     marginTop: Spacing.five,
-    opacity: 0.7,
+    opacity: 0.8,
+    color: '#dfe8ec',
   },
 });

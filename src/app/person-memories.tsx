@@ -3,10 +3,11 @@ import { useMemo, useState } from 'react';
 import { Alert, FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ConfirmModal } from '@/components/confirm-modal';
 import { EntryForm } from '@/components/entry-form';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { useEntries } from '@/context/EntryContext';
 import { usePerson } from '@/context/PersonContext';
 import { EntryDraft } from '@/types/entries';
@@ -48,6 +49,8 @@ export default function PersonMemoriesScreen() {
   );
   const [isCreating, setIsCreating] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
+  const [discardModalOpen, setDiscardModalOpen] = useState(false);
+  const [deleteEntryTarget, setDeleteEntryTarget] = useState<{ id: string; title: string } | null>(null);
   const [draft, setDraft] = useState<EntryDraft>({
     ...emptyDraft,
     taggedPeople: person ? [person.id] : [],
@@ -80,17 +83,7 @@ export default function PersonMemoriesScreen() {
       return;
     }
 
-    Alert.alert('Discard draft?', 'Your memory draft will be lost.', [
-      { text: 'Keep editing', style: 'cancel' },
-      {
-        text: 'Discard',
-        style: 'destructive',
-        onPress: () => {
-          setDraft({ ...emptyDraft, taggedPeople: person ? [person.id] : [] });
-          setIsCreating(false);
-        },
-      },
-    ]);
+    setDiscardModalOpen(true);
   };
 
   const openEntryTypePicker = () => {
@@ -124,19 +117,41 @@ export default function PersonMemoriesScreen() {
   };
 
   const handleDeleteEntry = (entryId: string, title: string) => {
-    Alert.alert('Delete memory', `Remove “${title}”?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => removeEntry(entryId),
-      },
-    ]);
+    setDeleteEntryTarget({ id: entryId, title });
   };
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
+        <ConfirmModal
+          visible={discardModalOpen}
+          title="Discard draft?"
+          message="Your memory draft will be lost."
+          cancelText="Keep editing"
+          confirmText="Discard"
+          destructive
+          onCancel={() => setDiscardModalOpen(false)}
+          onConfirm={() => {
+            setDraft({ ...emptyDraft, taggedPeople: person ? [person.id] : [] });
+            setIsCreating(false);
+            setDiscardModalOpen(false);
+          }}
+        />
+        <ConfirmModal
+          visible={deleteEntryTarget !== null}
+          title="Delete memory"
+          message={deleteEntryTarget ? `Remove “${deleteEntryTarget.title}”?` : 'Remove this memory?'}
+          cancelText="Cancel"
+          confirmText="Delete"
+          destructive
+          onCancel={() => setDeleteEntryTarget(null)}
+          onConfirm={() => {
+            if (deleteEntryTarget) {
+              removeEntry(deleteEntryTarget.id);
+            }
+            setDeleteEntryTarget(null);
+          }}
+        />
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <ThemedText type="smallBold" style={styles.backText}>Back</ThemedText>
@@ -150,7 +165,7 @@ export default function PersonMemoriesScreen() {
         </View>
 
         <View style={styles.actionRow}>
-          <ThemedText type="smallBold">Memories</ThemedText>
+          <ThemedText type="smallBold" style={styles.sectionTitle}>Memories</ThemedText>
           <Pressable onPress={openEntryTypePicker} style={styles.addButton}>
             <ThemedText type="smallBold" style={styles.addText}>+ Add</ThemedText>
           </Pressable>
@@ -228,14 +243,18 @@ export default function PersonMemoriesScreen() {
   );
 }
 
+const palette = Colors.light;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#1f272d',
   },
   safeArea: {
     flex: 1,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
+    backgroundColor: '#1f272d',
   },
   header: {
     gap: Spacing.two,
@@ -244,13 +263,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 30,
     lineHeight: 34,
+    color: '#f5f7f8',
   },
   backButton: {
     alignSelf: 'flex-start',
     paddingVertical: Spacing.one,
   },
   backText: {
-    color: '#3c87f7',
+    color: palette.brandSoft,
   },
   hero: {
     borderRadius: 16,
@@ -267,8 +287,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.three,
   },
+  sectionTitle: {
+    color: '#edf2f5',
+  },
   addButton: {
-    backgroundColor: '#111827',
+    backgroundColor: palette.brand,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: 999,
@@ -283,39 +306,47 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
   },
   modalCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#2a3137',
     borderRadius: 18,
     padding: Spacing.four,
     gap: Spacing.two,
+    borderWidth: 1,
+    borderColor: '#404b52',
   },
   modalTitle: {
     marginBottom: Spacing.one,
+    color: '#edf2f5',
   },
   optionButton: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderRadius: 12,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#2d363d',
+    borderWidth: 1,
+    borderColor: '#46525b',
   },
   optionText: {
     textTransform: 'capitalize',
+    color: '#edf2f5',
   },
   modalCancelButton: {
     alignItems: 'center',
     paddingTop: Spacing.two,
   },
   modalCancelText: {
-    color: '#3c87f7',
+    color: palette.brandSoft,
   },
   list: {
     gap: Spacing.three,
     paddingBottom: Spacing.six,
   },
   entryCard: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#2a3137',
     borderRadius: 16,
     padding: Spacing.three,
     gap: Spacing.one,
+    borderWidth: 1,
+    borderColor: '#404b52',
   },
   entryTopRow: {
     flexDirection: 'row',
@@ -324,21 +355,25 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   entryMeta: {
-    opacity: 0.7,
+    opacity: 0.8,
     textTransform: 'capitalize',
+    color: '#dfe8ec',
   },
   entryLocation: {
-    opacity: 0.7,
+    opacity: 0.8,
+    color: '#dfe8ec',
   },
   entryBody: {
-    opacity: 0.8,
+    opacity: 0.9,
+    color: '#edf2f5',
   },
   deleteText: {
-    color: '#d93c43',
+    color: '#ffb4b4',
   },
   emptyState: {
     textAlign: 'center',
     marginTop: Spacing.five,
-    opacity: 0.7,
+    opacity: 0.8,
+    color: '#dfe8ec',
   },
 });

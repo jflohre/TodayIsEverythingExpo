@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { Group } from '@/types/group';
 import { Person } from '@/types/person';
 
@@ -72,13 +72,17 @@ export function PersonCard({
   );
 }
 
+const palette = Colors.light;
+
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     gap: Spacing.three,
     padding: Spacing.three,
     borderRadius: 18,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#2a3137',
+    borderWidth: 1,
+    borderColor: '#404b52',
     alignItems: 'center',
   },
   mainContent: {
@@ -112,16 +116,20 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
     flexShrink: 1,
+    color: '#edf2f5',
   },
   meta: {
-    opacity: 0.7,
+    opacity: 0.8,
     textTransform: 'capitalize',
+    color: '#dfe8ec',
   },
   description: {
-    opacity: 0.8,
+    opacity: 0.9,
+    color: '#edf2f5',
   },
   footer: {
-    opacity: 0.7,
+    opacity: 0.8,
+    color: '#dfe8ec',
   },
   groupRow: {
     flexDirection: 'row',
@@ -143,7 +151,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   primaryButton: {
-    backgroundColor: '#111827',
+    backgroundColor: palette.brand,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -155,8 +163,10 @@ const styles = StyleSheet.create({
   deleteButton: {
     paddingVertical: 4,
     paddingHorizontal: 8,
+    backgroundColor: '#d75b5b',
+    borderRadius: 999,
   },
   deleteText: {
-    color: '#d93c43',
+    color: '#fff5f5',
   },
 });

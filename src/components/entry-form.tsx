@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { EntryDraft, EntryKind } from '@/types/entries';
 import { Group } from '@/types/group';
 import { Person } from '@/types/person';
@@ -16,6 +16,12 @@ try {
 }
 
 const entryTypes: EntryKind[] = ['voice', 'text', 'video', 'photo'];
+const entryTypeLabels: Record<EntryKind, string> = {
+  voice: 'Voice',
+  text: 'Text',
+  video: 'Video',
+  photo: 'Photo',
+};
 
 function formatDisplayDate(value: string) {
   if (!value) {
@@ -109,25 +115,26 @@ export function EntryForm({
       )}
 
       <View style={styles.fieldGroup}>
-        <ThemedText type="smallBold">Memory title</ThemedText>
+        <ThemedText type="smallBold" style={styles.sectionLabel}>Memory title</ThemedText>
         <TextInput
           value={draft.title}
           onChangeText={(value) => onChange({ ...draft, title: value })}
           placeholder="Playground laugh, first steps, family dinner"
+          placeholderTextColor="#a9b6bf"
           style={styles.input}
         />
       </View>
 
       <View style={styles.fieldGroup}>
-        <ThemedText type="smallBold">Entry type</ThemedText>
+        <ThemedText type="smallBold" style={styles.sectionLabel}>Entry type</ThemedText>
         <View style={styles.chipGroup}>
           {entryTypes.map((type) => (
             <Pressable
               key={type}
               onPress={() => onChange({ ...draft, type })}
               style={[styles.chip, draft.type === type && styles.chipSelected]}>
-              <ThemedText type="small" style={draft.type === type ? styles.chipTextSelected : undefined}>
-                {type}
+              <ThemedText type="small" style={draft.type === type ? styles.chipTextSelected : styles.chipText}>
+                {entryTypeLabels[type]}
               </ThemedText>
             </Pressable>
           ))}
@@ -136,7 +143,7 @@ export function EntryForm({
 
       {availableGroups.length > 0 ? (
         <View style={styles.fieldGroup}>
-          <ThemedText type="smallBold">Tagged groups</ThemedText>
+          <ThemedText type="smallBold" style={styles.sectionLabel}>Tagged groups</ThemedText>
           <View style={styles.chipGroup}>
             {availableGroups.map((group) => {
               const isSelected = (draft.taggedGroups ?? []).includes(group.id);
@@ -146,7 +153,7 @@ export function EntryForm({
                   key={group.id}
                   onPress={() => toggleTaggedGroup(group.id)}
                   style={[styles.chip, isSelected && styles.chipSelected]}>
-                  <ThemedText type="small" style={isSelected ? styles.chipTextSelected : undefined}>
+                  <ThemedText type="small" style={isSelected ? styles.chipTextSelected : styles.chipText}>
                     {group.name}
                   </ThemedText>
                 </Pressable>
@@ -158,7 +165,7 @@ export function EntryForm({
 
       {availablePeople.length > 0 ? (
         <View style={styles.fieldGroup}>
-          <ThemedText type="smallBold">Tagged people</ThemedText>
+          <ThemedText type="smallBold" style={styles.sectionLabel}>Tagged people</ThemedText>
           <View style={styles.chipGroup}>
             {availablePeople.map((person) => {
               const isSelected = draft.taggedPeople.includes(person.id);
@@ -168,7 +175,7 @@ export function EntryForm({
                   key={person.id}
                   onPress={() => toggleTaggedPerson(person.id)}
                   style={[styles.chip, isSelected && styles.chipSelected]}>
-                  <ThemedText type="small" style={isSelected ? styles.chipTextSelected : undefined}>
+                  <ThemedText type="small" style={isSelected ? styles.chipTextSelected : styles.chipText}>
                     {person.name}
                   </ThemedText>
                 </Pressable>
@@ -179,7 +186,7 @@ export function EntryForm({
       ) : null}
 
       <View style={styles.fieldGroup}>
-        <ThemedText type="smallBold">Date</ThemedText>
+        <ThemedText type="smallBold" style={styles.sectionLabel}>Date</ThemedText>
 
         {DateTimePicker ? (
           <>
@@ -203,6 +210,7 @@ export function EntryForm({
             value={draft.date || getTodayDateString()}
             onChangeText={(value) => onChange({ ...draft, date: value })}
             placeholder="YYYY-MM-DD"
+            placeholderTextColor="#a9b6bf"
             style={styles.input}
             autoCapitalize="none"
           />
@@ -210,21 +218,23 @@ export function EntryForm({
       </View>
 
       <View style={styles.fieldGroup}>
-        <ThemedText type="smallBold">Location</ThemedText>
+        <ThemedText type="smallBold" style={styles.sectionLabel}>Location</ThemedText>
         <TextInput
           value={draft.location}
           onChangeText={(value) => onChange({ ...draft, location: value })}
-          placeholder="Backyard, Grandma's house, beach trip"
-          style={styles.input}
+          placeholder="Where did this memory occur?"
+          placeholderTextColor="#a9b6bf"
+          style={[styles.input, styles.locationInput]}
         />
       </View>
 
       <View style={styles.fieldGroup}>
-        <ThemedText type="smallBold">Story</ThemedText>
+        <ThemedText type="smallBold" style={styles.sectionLabel}>Story</ThemedText>
         <TextInput
           value={draft.body}
           onChangeText={(value) => onChange({ ...draft, body: value })}
           placeholder="What made this moment special?"
+          placeholderTextColor="#a9b6bf"
           multiline
           numberOfLines={6}
           style={[styles.input, styles.textArea]}
@@ -243,6 +253,8 @@ export function EntryForm({
   );
 }
 
+const palette = Colors.light;
+
 const styles = StyleSheet.create({
   container: {
     gap: Spacing.four,
@@ -254,30 +266,37 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
   },
   backText: {
-    color: '#3c87f7',
+    color: palette.brandSoft,
   },
   fieldGroup: {
     gap: Spacing.two,
   },
+  sectionLabel: {
+    color: '#edf2f5',
+  },
   input: {
     borderWidth: 1,
-    borderColor: '#dfe3ea',
+    borderColor: '#46525b',
     borderRadius: 12,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    backgroundColor: '#fff',
+    backgroundColor: '#1f272d',
     fontSize: 16,
+    color: '#edf2f5',
+  },
+  locationInput: {
+    color: '#edf2f5',
   },
   dateContainer: {
     borderWidth: 1,
-    borderColor: '#dfe3ea',
+    borderColor: '#46525b',
     borderRadius: 12,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    backgroundColor: '#fff',
+    backgroundColor: '#1f272d',
   },
   dateText: {
-    color: '#111827',
+    color: '#edf2f5',
   },
   textArea: {
     minHeight: 130,
@@ -289,13 +308,24 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   chip: {
-    backgroundColor: '#f0f1f4',
+    backgroundColor: '#2d363d',
     borderRadius: 999,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
+    borderWidth: 1,
+    borderColor: '#46525b',
+    minWidth: 104,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   chipSelected: {
-    backgroundColor: '#111827',
+    backgroundColor: palette.brand,
+    borderColor: palette.brand,
+  },
+  chipText: {
+    color: '#dfe8ec',
+    textTransform: 'capitalize',
   },
   chipTextSelected: {
     color: '#fff',
@@ -303,7 +333,7 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: Spacing.two,
-    backgroundColor: '#111827',
+    backgroundColor: palette.brand,
     borderRadius: 14,
     paddingVertical: Spacing.three,
     alignItems: 'center',

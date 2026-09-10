@@ -2,12 +2,24 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { Group } from '@/types/group';
 import { PersonDraft, PersonPrivacy, PersonType } from '@/types/person';
 
 const personTypes: PersonType[] = ['child', 'spouse', 'parent', 'pet', 'family'];
 const privacyLevels: PersonPrivacy[] = ['private', 'family-only', 'shared'];
+const personTypeLabels: Record<PersonType, string> = {
+  child: 'Child',
+  spouse: 'Spouse',
+  parent: 'Parent',
+  pet: 'Pet',
+  family: 'Family',
+};
+const privacyLabels: Record<PersonPrivacy, string> = {
+  private: 'Private',
+  'family-only': 'Family Only',
+  shared: 'Shared',
+};
 
 export function PersonForm({
   draft,
@@ -57,25 +69,27 @@ export function PersonForm({
       )}
 
       <View style={styles.fieldGroup}>
-        <ThemedText type="smallBold">Person name</ThemedText>
+        <ThemedText type="smallBold" style={styles.sectionLabel}>Person name</ThemedText>
         <TextInput
           value={draft.name}
           onChangeText={(value) => onChange({ ...draft, name: value })}
           placeholder="e.g. Emma, Dad, Family Stories"
+          placeholderTextColor="#a9b6bf"
+          selectionColor="#7bd7e9"
           style={styles.input}
         />
       </View>
 
       <View style={styles.fieldGroup}>
-        <ThemedText type="smallBold">Who is this for?</ThemedText>
+        <ThemedText type="smallBold" style={styles.sectionLabel}>Who is this for?</ThemedText>
         <View style={styles.chipGroup}>
           {personTypes.map((type) => (
             <Pressable
               key={type}
               onPress={() => onChange({ ...draft, type })}
               style={[styles.chip, draft.type === type && styles.chipSelected]}>
-              <ThemedText type="small" style={draft.type === type ? styles.chipTextSelected : undefined}>
-                {type}
+              <ThemedText type="small" style={draft.type === type ? styles.chipTextSelected : styles.chipText}>
+                {personTypeLabels[type]}
               </ThemedText>
             </Pressable>
           ))}
@@ -83,15 +97,15 @@ export function PersonForm({
       </View>
 
       <View style={styles.fieldGroup}>
-        <ThemedText type="smallBold">Privacy</ThemedText>
+        <ThemedText type="smallBold" style={styles.sectionLabel}>Privacy</ThemedText>
         <View style={styles.chipGroup}>
           {privacyLevels.map((level) => (
             <Pressable
               key={level}
               onPress={() => onChange({ ...draft, privacy: level })}
               style={[styles.chip, draft.privacy === level && styles.chipSelected]}>
-              <ThemedText type="small" style={draft.privacy === level ? styles.chipTextSelected : undefined}>
-                {level}
+              <ThemedText type="small" style={draft.privacy === level ? styles.chipTextSelected : styles.chipText}>
+                {privacyLabels[level]}
               </ThemedText>
             </Pressable>
           ))}
@@ -99,7 +113,7 @@ export function PersonForm({
       </View>
 
       <View style={styles.fieldGroup}>
-        <ThemedText type="smallBold">Groups</ThemedText>
+        <ThemedText type="smallBold" style={styles.sectionLabel}>Groups</ThemedText>
 
         {onCreateGroup ? (
           <View style={styles.groupCreateRow}>
@@ -107,6 +121,8 @@ export function PersonForm({
               value={newGroupName}
               onChangeText={setNewGroupName}
               placeholder="Add new group"
+              placeholderTextColor="#a9b6bf"
+              selectionColor="#7bd7e9"
               style={[styles.input, styles.groupInput]}
             />
             <Pressable onPress={handleCreateGroup} disabled={!newGroupName.trim()} style={[styles.addGroupButton, !newGroupName.trim() && styles.addGroupButtonDisabled]}>
@@ -131,7 +147,7 @@ export function PersonForm({
                     onChange({ ...draft, groupIds: nextGroupIds });
                   }}
                   style={[styles.chip, isSelected && styles.chipSelected]}>
-                  <ThemedText type="small" style={isSelected ? styles.chipTextSelected : undefined}>
+                  <ThemedText type="small" style={isSelected ? styles.chipTextSelected : styles.chipText}>
                     {group.name}
                   </ThemedText>
                 </Pressable>
@@ -144,11 +160,13 @@ export function PersonForm({
       </View>
 
       <View style={styles.fieldGroup}>
-        <ThemedText type="smallBold">Short description</ThemedText>
+        <ThemedText type="smallBold" style={styles.sectionLabel}>Short description</ThemedText>
         <TextInput
           value={draft.description}
           onChangeText={(value) => onChange({ ...draft, description: value })}
           placeholder="Family moments, milestones, and stories to remember."
+          placeholderTextColor="#a9b6bf"
+          selectionColor="#7bd7e9"
           multiline
           numberOfLines={4}
           style={[styles.input, styles.textArea]}
@@ -164,6 +182,8 @@ export function PersonForm({
   );
 }
 
+const palette = Colors.light;
+
 const styles = StyleSheet.create({
   container: {
     gap: Spacing.four,
@@ -175,19 +195,23 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
   },
   backText: {
-    color: '#3c87f7',
+    color: palette.brandSoft,
   },
   fieldGroup: {
     gap: Spacing.two,
   },
+  sectionLabel: {
+    color: '#edf2f5',
+  },
   input: {
     borderWidth: 1,
-    borderColor: '#dfe3ea',
+    borderColor: '#46525b',
     borderRadius: 12,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    backgroundColor: '#fff',
+    backgroundColor: '#1f272d',
     fontSize: 16,
+    color: '#edf2f5',
   },
   textArea: {
     minHeight: 110,
@@ -207,7 +231,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   addGroupButton: {
-    backgroundColor: '#111827',
+    backgroundColor: palette.brand,
     borderRadius: 10,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
@@ -219,16 +243,28 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   helperText: {
-    opacity: 0.7,
+    opacity: 0.8,
+    color: '#dfe8ec',
   },
   chip: {
-    backgroundColor: '#f0f1f4',
+    backgroundColor: '#2d363d',
     borderRadius: 999,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
+    borderWidth: 1,
+    borderColor: '#46525b',
+    minWidth: 104,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   chipSelected: {
-    backgroundColor: '#111827',
+    backgroundColor: palette.brand,
+    borderColor: palette.brand,
+  },
+  chipText: {
+    color: '#dfe8ec',
+    textTransform: 'capitalize',
   },
   chipTextSelected: {
     color: '#fff',
@@ -236,7 +272,7 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: Spacing.two,
-    backgroundColor: '#111827',
+    backgroundColor: palette.brand,
     borderRadius: 14,
     paddingVertical: Spacing.three,
     alignItems: 'center',
